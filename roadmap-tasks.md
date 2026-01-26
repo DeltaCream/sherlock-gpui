@@ -19,6 +19,7 @@ it.
 This step includes several sub tasks:
 - Implement launcher loader 
 - Improve the launcher logic (maybe macro for improved extesibility)
+- Add bincode cache for the launcher logic with a trigger on original file change
 
 
 ## [2] Clean up `search_view.rs` 
