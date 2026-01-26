@@ -760,7 +760,7 @@ impl InputExample {
 
         let result = (|| {
             let icon_path = lookup_icon(icon_name)
-                .with_size(48)
+                .with_size(24)
                 .with_search_paths(&["~/.local/share/icons/"])
                 .ok()?
                 .next()?
@@ -827,7 +827,7 @@ impl InputExample {
             })
             .child(
                 if let Some(icon) = ks.icon.as_ref().and_then(|i| self.get_icon_path(i)) {
-                    img(ImageSource::Resource(Resource::Path(icon))).size_5()
+                    img(ImageSource::Resource(Resource::Path(icon))).size(px(24.))
                 } else {
                     img(ImageSource::Image(Arc::new(Image::empty()))).size_5()
                 }, // if let Some(icon) = ks
