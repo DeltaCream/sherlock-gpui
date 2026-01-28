@@ -23,12 +23,12 @@ use crate::{
 /// # Arguments
 /// * `cmd` -  A string containing the program name followed by its arguments (e.g, `foot -e`).
 pub fn spawn_detached(cmd: &str) -> Result<(), SherlockError> {
-    let parts: Vec<&str> = cmd.split_whitespace().collect();
+    let parts = split_as_command(cmd);
     if parts.is_empty() {
         return Ok(());
     }
 
-    let program = parts[0];
+    let program = &parts[0];
     let args = &parts[1..];
 
     let mut command = Command::new(program);
@@ -67,4 +67,49 @@ pub fn spawn_detached(cmd: &str) -> Result<(), SherlockError> {
     let _ = child.wait();
 
     Ok(())
+}
+
+pub fn split_as_command(cmd: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut double_quoting = false;
+    let mut single_quoting = false;
+    let mut escaped = false;
+
+    let mut it = cmd.chars().peekable();
+
+    while let Some(c) = it.next() {
+        if escaped {
+            current.push(c);
+            escaped = false;
+            continue;
+        }
+
+        match c {
+            '\\' if !single_quoting => {
+                escaped = true;
+            }
+            '"' if !single_quoting => {
+                double_quoting = !double_quoting;
+            }
+            '\'' if !double_quoting => {
+                single_quoting = !single_quoting;
+            }
+            c if c.is_whitespace() && !double_quoting && !single_quoting => {
+                if !current.is_empty() {
+                    parts.push(current.split_off(0));
+                }
+            }
+            c => {
+                current.push(c);
+            }
+        }
+    }
+
+    if !current.is_empty() {
+        parts.push(current);
+    }
+
+    parts.retain(|s| !s.starts_with('%'));
+    parts
 }

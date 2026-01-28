@@ -1,5 +1,6 @@
 use async_std::sync::Mutex;
 use glob::Pattern;
+use gpui::SharedString;
 use rayon::prelude::*;
 use simd_json;
 use simd_json::prelude::ArrayTrait;
@@ -13,6 +14,8 @@ use std::time::SystemTime;
 use super::Loader;
 use super::utils::ApplicationAction;
 use super::utils::{AppData, SherlockAlias};
+use crate::launcher::Launcher;
+use crate::loader::utils::AppDataSerde;
 use crate::prelude::PathHelpers;
 use crate::utils::cache::BinaryCache;
 use crate::utils::{
@@ -24,8 +27,8 @@ use crate::{sher_log, sherlock_error};
 
 impl Loader {
     pub fn load_applications_from_disk(
+        launcher: Arc<Launcher>,
         applications: Option<Vec<PathBuf>>,
-        priority: f32,
         counts: &HashMap<String, u32>,
         decimals: i32,
         use_keywords: bool,
@@ -77,7 +80,7 @@ impl Loader {
                 let r_path = entry.to_str()?;
                 match read_lines(r_path) {
                     Ok(content) => {
-                        let mut data = AppData::new();
+                        let mut data = AppData::new(Arc::clone(&launcher));
                         let mut current_section = None;
                         let mut current_action = ApplicationAction::new("app_launcher");
                         data.desktop_file = Some(entry);
@@ -108,7 +111,7 @@ impl Loader {
                                                 if should_ignore(&ignore_apps, value) {
                                                     return None;
                                                 }
-                                                value.to_string()
+                                                SharedString::from(value.to_string())
                                             }
                                         }
                                         "icon" => data.icon = Some(value.to_string()),
@@ -122,7 +125,7 @@ impl Loader {
                                         "terminal" => {
                                             data.terminal = value.eq_ignore_ascii_case("true");
                                         }
-                                        "keywords" => data.search_string = value.to_string(),
+                                        "keywords" => data.search_string = value.to_lowercase(),
                                         _ => {}
                                     }
                                 } else {
@@ -147,7 +150,7 @@ impl Loader {
                             .for_each(|action| action.icon = data.icon.clone());
                         let alias = {
                             let mut aliases = aliases.lock_blocking();
-                            aliases.remove(&data.name)
+                            aliases.remove(&data.name.to_string())
                         };
                         data.apply_alias(alias, use_keywords);
                         // apply counts
@@ -156,7 +159,7 @@ impl Loader {
                             .as_ref()
                             .and_then(|exec| counts.get(exec))
                             .unwrap_or(&0);
-                        let priority = parse_priority(priority, *count, decimals);
+                        let priority = parse_priority(launcher.priority as f32, *count, decimals);
                         data.priority = priority;
                         Some(data)
                     }
@@ -168,8 +171,8 @@ impl Loader {
     }
 
     fn get_new_applications(
+        launcher: Arc<Launcher>,
         mut apps: Vec<AppData>,
-        priority: f32,
         counts: &HashMap<String, u32>,
         decimals: i32,
         last_changed: Option<SystemTime>,
@@ -207,8 +210,8 @@ impl Loader {
 
         // get information for uncached applications
         match Loader::load_applications_from_disk(
+            launcher,
             Some(desktop_files),
-            priority,
             counts,
             decimals,
             use_keywords,
@@ -220,7 +223,7 @@ impl Loader {
     }
 
     pub fn load_applications(
-        priority: f32,
+        launcher: Arc<Launcher>,
         counts: &HashMap<String, u32>,
         decimals: i32,
         use_keywords: bool,
@@ -233,17 +236,18 @@ impl Loader {
 
         if !changed {
             let _ = sher_log!("Loading cached apps");
-            let mut cached_apps: Vec<AppData> = BinaryCache::read(&config.caching.cache)?;
+            let cached_apps: Vec<AppDataSerde> = BinaryCache::read(&config.caching.cache)?;
 
             let cleaned_apps: Vec<AppData> = cached_apps
-                .drain(..)
+                .into_iter()
+                .map(|serde| AppData::from_deserialized(serde, Arc::clone(&launcher)))
                 .map(|mut v| {
                     let count = v
                         .exec
                         .as_ref()
                         .and_then(|exec| counts.get(exec))
                         .unwrap_or(&0);
-                    let new_priority = parse_priority(priority, *count, decimals);
+                    let new_priority = parse_priority(launcher.priority as f32, *count, decimals);
                     v.priority = new_priority;
                     v
                 })
@@ -257,8 +261,8 @@ impl Loader {
                 let counts_clone = counts.clone();
                 move || {
                     if let Ok(new_apps) = Loader::get_new_applications(
+                        launcher,
                         old_apps,
-                        priority,
                         &counts_clone,
                         decimals,
                         last_changed,
@@ -275,7 +279,7 @@ impl Loader {
 
         let _ = sher_log!("Updating cached apps");
         let apps =
-            Loader::load_applications_from_disk(None, priority, counts, decimals, use_keywords)?;
+            Loader::load_applications_from_disk(launcher, None, counts, decimals, use_keywords)?;
         // Write the cache in the background
         let app_clone = apps.clone();
         let cache = config.caching.cache.clone();
