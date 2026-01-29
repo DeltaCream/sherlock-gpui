@@ -330,13 +330,6 @@ fn parse_web_launcher(raw: &RawLauncher) -> LauncherType {
 
     // Adds functionality for variables
     LauncherType::Web(WebLauncher {
-        display_name: raw.display_name.clone().unwrap_or("".to_string()),
-        icon: raw
-            .args
-            .get("icon")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
         engine: raw
             .args
             .get("search_engine")

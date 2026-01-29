@@ -110,7 +110,7 @@ impl Loader {
                                                 if should_ignore(&ignore_apps, value) {
                                                     return None;
                                                 }
-                                                SharedString::from(value.to_string())
+                                                Some(SharedString::from(value.to_string()))
                                             }
                                         }
                                         "icon" => data.icon = Some(value.to_string()),
@@ -149,9 +149,9 @@ impl Loader {
                             .for_each(|action| action.icon = data.icon.clone());
                         let alias = {
                             let mut aliases = aliases.lock_blocking();
-                            aliases.remove(&data.name.to_string())
+                            aliases.remove(data.name.as_ref().unwrap().as_str())
                         };
-                        data.apply_alias(alias, use_keywords);
+                        data.apply_alias(&launcher, alias, use_keywords);
                         // apply counts
                         let count = data
                             .exec
@@ -159,7 +159,7 @@ impl Loader {
                             .and_then(|exec| counts.get(exec))
                             .unwrap_or(&0);
                         let priority = parse_priority(launcher.priority as f32, *count, decimals);
-                        data.priority = priority;
+                        data.priority = Some(priority);
                         Some(data)
                     }
                     Err(_) => None,
@@ -246,7 +246,7 @@ impl Loader {
                         .and_then(|exec| counts.get(exec))
                         .unwrap_or(&0);
                     let new_priority = parse_priority(launcher.priority as f32, *count, decimals);
-                    v.priority = new_priority;
+                    v.priority = Some(new_priority);
                     v
                 })
                 .collect();

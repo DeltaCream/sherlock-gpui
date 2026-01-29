@@ -184,12 +184,12 @@ impl MozillaSqliteParser {
             if let Ok(rows) = event_iter {
                 for row in rows.flatten() {
                     let bookmark = AppData {
-                        name: SharedString::from(&row.0),
+                        name: Some(SharedString::from(&row.0)),
                         icon: None,
-                        search_string: construct_search(&row.0, &row.1, true),
+                        search_string: construct_search(Some(&row.0), &row.1, true),
                         exec: Some(row.1),
                         desktop_file: None,
-                        priority: launcher.priority as f32 + 1.0,
+                        priority: Some(launcher.priority as f32 + 1.0),
                         actions: vec![],
                         vars: vec![],
                         terminal: false,
@@ -273,12 +273,12 @@ impl ChromeParser {
                 "url" => {
                     if let Some(url) = bookmark.url {
                         bookmarks.push(AppData {
-                            name: SharedString::from(&bookmark.name),
+                            name: Some(SharedString::from(&bookmark.name)),
                             icon: None,
                             exec: Some(url.clone()),
-                            search_string: construct_search(&bookmark.name, &url, true),
+                            search_string: construct_search(Some(&bookmark.name), &url, true),
                             desktop_file: None,
-                            priority: launcher.priority as f32 + 1.0,
+                            priority: Some(launcher.priority as f32 + 1.0),
                             actions: vec![],
                             vars: vec![],
                             terminal: false,

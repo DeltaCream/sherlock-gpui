@@ -52,11 +52,11 @@ impl ApplicationAction {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct AppData {
     #[serde(default)]
-    pub name: SharedString,
+    pub name: Option<SharedString>,
     pub exec: Option<String>,
     pub search_string: String,
     #[serde(default)]
-    pub priority: f32,
+    pub priority: Option<f32>,
     pub icon: Option<String>,
     pub desktop_file: Option<PathBuf>,
     #[serde(default)]
@@ -78,10 +78,10 @@ impl Hash for AppData {
 impl AppData {
     pub fn new() -> Self {
         Self {
-            name: SharedString::new(""),
+            name: None,
             exec: None,
             search_string: String::new(),
-            priority: 0.0,
+            priority: None,
             icon: None,
             desktop_file: None,
             actions: vec![],
@@ -89,23 +89,36 @@ impl AppData {
             terminal: false,
         }
     }
-    pub fn apply_alias(&mut self, alias: Option<SherlockAlias>, use_keywords: bool) {
+    pub fn apply_alias(
+        &mut self,
+        launcher: &Arc<Launcher>,
+        alias: Option<SherlockAlias>,
+        use_keywords: bool,
+    ) {
         if let Some(alias) = alias {
             if let Some(alias_name) = alias.name.as_ref() {
-                self.name = SharedString::from(alias_name);
+                self.name = Some(SharedString::from(alias_name));
             }
+
             if let Some(alias_icon) = alias.icon.as_ref() {
                 self.icon = Some(alias_icon.to_string());
             }
+
+            let name: Option<&str> = self
+                .name
+                .as_ref()
+                .map(|s| s.as_str())
+                .or(launcher.display_name.as_ref().map(|s| s.as_str()));
             if let Some(alias_keywords) = alias.keywords.as_ref() {
-                self.search_string = construct_search(&self.name, &alias_keywords, use_keywords);
+                self.search_string = construct_search(name, &alias_keywords, use_keywords);
             } else {
-                self.search_string =
-                    construct_search(&self.name, &self.search_string, use_keywords);
+                self.search_string = construct_search(name, &self.search_string, use_keywords);
             }
+
             if let Some(alias_exec) = alias.exec.as_ref() {
                 self.exec = Some(alias_exec.to_string());
             }
+
             if let Some(add_actions) = alias.add_actions {
                 add_actions.into_iter().for_each(|mut a| {
                     if a.icon.is_none() {
@@ -114,6 +127,7 @@ impl AppData {
                     self.actions.push(a);
                 });
             }
+
             if let Some(actions) = alias.actions {
                 self.actions = actions
                     .into_iter()
@@ -125,11 +139,17 @@ impl AppData {
                     })
                     .collect();
             }
+
             if let Some(variables) = alias.variables {
                 self.vars.extend(variables);
             }
         } else {
-            self.search_string = construct_search(&self.name, &self.search_string, use_keywords);
+            let name: Option<&str> = self
+                .name
+                .as_ref()
+                .map(|s| s.as_str())
+                .or(launcher.display_name.as_ref().map(|s| s.as_str()));
+            self.search_string = construct_search(name, &self.search_string, use_keywords);
         }
     }
     pub fn get_exec(&self, launcher: &Arc<Launcher>) -> Option<String> {
@@ -259,7 +279,7 @@ where
         {
             let mut set = HashSet::new();
             while let Some((key, mut value)) = map.next_entry::<String, AppData>()? {
-                value.name = SharedString::from(key);
+                value.name = Some(SharedString::from(key));
                 set.insert(value);
             }
             Ok(set)
@@ -268,18 +288,18 @@ where
     deserializer.deserialize_map(AppDataMapVisitor)
 }
 
-pub fn construct_search(name: &str, search_str: &str, use_keywords: bool) -> String {
+pub fn construct_search(name: Option<&str>, search_str: &str, use_keywords: bool) -> String {
     let mut s = if use_keywords {
-        let mut s = String::with_capacity(name.len() + 1 + search_str.len());
-        s.push_str(name);
+        let name_val = name.unwrap_or("");
+        let mut s = String::with_capacity(name_val.len() + 1 + search_str.len());
+        s.push_str(name_val);
         s.push(';');
         s.push_str(search_str);
         s
     } else {
-        name.to_string()
+        name.unwrap_or_default().to_string()
     };
 
-    // Use the same lowercase logic for both paths
     s.make_ascii_lowercase();
     s
 }

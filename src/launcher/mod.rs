@@ -19,7 +19,7 @@ pub mod web_launcher;
 // pub mod process_launcher;
 // pub mod theme_picker;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, vec};
 
 use crate::{
     launcher::{children::RenderableChild, weather_launcher::WeatherData},
@@ -39,7 +39,7 @@ use bookmark_launcher::BookmarkLauncher;
 use calc_launcher::CalculatorLauncher;
 use category_launcher::CategoryLauncher;
 use event_launcher::EventLauncher;
-use gpui::{App, AsyncApp, Entity};
+use gpui::{App, AsyncApp, Entity, SharedString};
 use serde_json::Value;
 use system_cmd_launcher::CommandLauncher;
 use weather_launcher::WeatherLauncher;
@@ -113,6 +113,16 @@ impl LauncherType {
                             .collect()
                     })
                     .ok()
+            }
+
+            Self::Web(web) => {
+                let mut inner = AppData::new();
+                inner.icon = opts
+                    .get("icon")
+                    .and_then(Value::as_str)
+                    .map(|s| s.to_string());
+
+                Some(vec![RenderableChild::AppLike { launcher, inner }])
             }
 
             Self::Weather(wttr) => {
@@ -191,6 +201,7 @@ impl LauncherType {
 #[derive(Clone, Debug, Default)]
 pub struct Launcher {
     pub name: Option<String>,
+    pub display_name: Option<SharedString>,
     pub icon: Option<String>,
     pub alias: Option<String>,
     pub tag_start: Option<String>,
@@ -216,6 +227,7 @@ impl Launcher {
     ) -> Self {
         Self {
             name: raw.name,
+            display_name: raw.display_name.map(|n| SharedString::from(n)),
             icon,
             alias: raw.alias,
             tag_start: raw.tag_start,

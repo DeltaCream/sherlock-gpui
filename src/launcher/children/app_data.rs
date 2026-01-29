@@ -45,7 +45,12 @@ impl RenderableChildImpl for AppData {
                             .overflow_hidden()
                             .text_ellipsis()
                             .whitespace_nowrap()
-                            .child(self.name.clone()),
+                            .children(
+                                self.name
+                                    .as_ref()
+                                    .or(launcher.display_name.as_ref())
+                                    .map(|name| div().child(name.clone())),
+                            ),
                     )
                     .child(
                         div()
@@ -64,8 +69,8 @@ impl RenderableChildImpl for AppData {
         let attrs = ExecAttrs::from_appdata(self, launcher);
         launcher.execute(&attrs, keyword)
     }
-    fn priority(&self, _launcher: &Arc<Launcher>) -> f32 {
-        self.priority
+    fn priority(&self, launcher: &Arc<Launcher>) -> f32 {
+        self.priority.unwrap_or(launcher.priority as f32)
     }
     fn search(&self, _launcher: &Arc<Launcher>) -> String {
         self.search_string.clone()
