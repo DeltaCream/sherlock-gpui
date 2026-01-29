@@ -81,9 +81,6 @@ impl CalcData {
 }
 
 impl RenderableChildImpl for CalcData {
-    fn icon(&self, _launcher: &std::sync::Arc<crate::launcher::Launcher>) -> Option<String> {
-        None
-    }
     fn search(&self, _launcher: &std::sync::Arc<crate::launcher::Launcher>) -> String {
         String::new()
     }
@@ -100,7 +97,6 @@ impl RenderableChildImpl for CalcData {
     fn render(
         &self,
         _launcher: &std::sync::Arc<crate::launcher::Launcher>,
-        _icon: Option<std::sync::Arc<std::path::Path>>,
         is_selected: bool,
     ) -> gpui::AnyElement {
         let result = {

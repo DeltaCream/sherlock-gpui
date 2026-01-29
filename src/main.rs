@@ -1,7 +1,5 @@
 use once_cell::sync::OnceCell;
 use std::{
-    cell::RefCell,
-    collections::HashMap,
     io::Write,
     sync::{Arc, RwLock},
 };
@@ -14,7 +12,7 @@ use gpui::{
 
 use crate::{
     launcher::children::RenderableChild,
-    loader::Loader,
+    loader::{CustomIconTheme, IconThemeGuard, Loader, assets::Assets},
     utils::{config::SherlockConfig, errors::SherlockErrorType},
 };
 
@@ -32,6 +30,7 @@ use ui::search_bar::{
 
 use utils::errors::SherlockError;
 
+static ICONS: OnceCell<RwLock<CustomIconTheme>> = OnceCell::new();
 static CONFIG: OnceCell<RwLock<SherlockConfig>> = OnceCell::new();
 
 fn setup() -> Result<(), SherlockError> {
@@ -50,6 +49,14 @@ fn setup() -> Result<(), SherlockError> {
             cfg
         },
     );
+
+    // Load custom icons
+    let _ = ICONS.set(RwLock::new(CustomIconTheme::new()));
+    config.appearance.icon_paths.iter().for_each(|path| {
+        if let Err(e) = IconThemeGuard::add_path(path) {
+            eprintln!("{:?}", e);
+        }
+    });
 
     // Create global config
     CONFIG
@@ -73,7 +80,7 @@ async fn main() {
     }
 
     // start primary instance
-    let app = Application::new();
+    let app = Application::new().with_assets(Assets);
     app.with_quit_mode(QuitMode::Explicit).run(|cx: &mut App| {
         cx.bind_keys([
             KeyBinding::new("backspace", Backspace, None),
@@ -151,7 +158,6 @@ fn spawn_launcher(cx: &mut App, data: Entity<Arc<Vec<RenderableChild>>>) -> AnyW
                     list_state,
                     _subs: vec![sub],
                     selected_index: 0,
-                    icon_cache: RefCell::new(HashMap::new()),
                     // Data model
                     data,
                     deferred_render_task: None,

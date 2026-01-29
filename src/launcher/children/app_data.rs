@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, Image, ImageSource, IntoElement, ParentElement, Resource, Styled, div, img, px, rgb,
-};
+use gpui::{AnyElement, Image, ImageSource, IntoElement, ParentElement, Styled, div, img, px, rgb};
 
 use crate::{
     launcher::{ExecAttrs, Launcher, children::RenderableChildImpl},
@@ -11,12 +9,7 @@ use crate::{
 };
 
 impl RenderableChildImpl for AppData {
-    fn render(
-        &self,
-        launcher: &Arc<Launcher>,
-        icon: Option<Arc<std::path::Path>>,
-        is_selected: bool,
-    ) -> AnyElement {
+    fn render(&self, launcher: &Arc<Launcher>, is_selected: bool) -> AnyElement {
         div()
             .px_4()
             .py_2()
@@ -24,10 +17,12 @@ impl RenderableChildImpl for AppData {
             .flex()
             .gap_5()
             .items_center()
-            .child(if let Some(icon) = icon {
-                img(ImageSource::Resource(Resource::Path(icon))).size(px(24.))
+            .child(if let Some(icon) = self.icon.as_ref() {
+                img(Arc::clone(&icon)).size(px(24.)).into_any_element()
             } else {
-                img(ImageSource::Image(Arc::new(Image::empty()))).size(px(24.))
+                img(ImageSource::Image(Arc::new(Image::empty())))
+                    .size(px(24.))
+                    .into_any_element()
             })
             .child(
                 div()
@@ -74,8 +69,5 @@ impl RenderableChildImpl for AppData {
     }
     fn search(&self, _launcher: &Arc<Launcher>) -> String {
         self.search_string.clone()
-    }
-    fn icon(&self, _launcher: &Arc<Launcher>) -> Option<String> {
-        self.icon.clone()
     }
 }

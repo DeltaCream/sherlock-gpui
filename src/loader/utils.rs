@@ -7,12 +7,13 @@ use std::{
     collections::{BTreeSet, HashMap, HashSet},
     fmt::Debug,
     hash::{Hash, Hasher},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
 use crate::{
     launcher::{Launcher, LauncherType},
+    loader::resolve_icon_path,
     sherlock_error,
     utils::{
         cache::BinaryCache,
@@ -26,7 +27,7 @@ use crate::{
 pub struct ApplicationAction {
     pub name: Option<String>,
     pub exec: Option<String>,
-    pub icon: Option<String>,
+    pub icon: Option<Arc<Path>>,
     pub method: String,
     #[serde(default = "default_true")]
     pub exit: bool,
@@ -57,7 +58,7 @@ pub struct AppData {
     pub search_string: String,
     #[serde(default)]
     pub priority: Option<f32>,
-    pub icon: Option<String>,
+    pub icon: Option<Arc<Path>>,
     pub desktop_file: Option<PathBuf>,
     #[serde(default)]
     pub actions: Vec<ApplicationAction>,
@@ -100,8 +101,8 @@ impl AppData {
                 self.name = Some(SharedString::from(alias_name));
             }
 
-            if let Some(alias_icon) = alias.icon.as_ref() {
-                self.icon = Some(alias_icon.to_string());
+            if let Some(alias_icon) = alias.icon.as_ref().map(|i| resolve_icon_path(i)) {
+                self.icon = alias_icon;
             }
 
             let name: Option<&str> = self

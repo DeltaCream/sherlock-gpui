@@ -6,7 +6,7 @@ use gpui::{
     InteractiveElement, IntoElement, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent,
     MouseUpEvent, PaintQuad, ParentElement, Pixels, Point, Render, ShapedLine, SharedString, Style,
     Styled, TextRun, UTF16Selection, UnderlineStyle, Window, actions, div, fill, hsla, point, px,
-    relative, rgb, rgba,
+    rgb, rgba,
 };
 use unicode_segmentation::UnicodeSegmentation;
 

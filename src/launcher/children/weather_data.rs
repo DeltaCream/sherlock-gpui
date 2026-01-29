@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, Image, ImageSource, IntoElement, ParentElement, Resource, Styled, div, img,
-    linear_gradient, px,
+    AnyElement, Image, ImageSource, IntoElement, ParentElement, Styled, div, img, linear_gradient,
+    px,
 };
 
 use crate::{
@@ -20,15 +20,7 @@ impl RenderableChildImpl for WeatherData {
     fn search(&self, _launcher: &Arc<Launcher>) -> String {
         String::new()
     }
-    fn icon(&self, _launcher: &Arc<Launcher>) -> Option<String> {
-        Some(self.icon.clone())
-    }
-    fn render(
-        &self,
-        _launcher: &Arc<Launcher>,
-        icon: Option<Arc<std::path::Path>>,
-        _is_selected: bool,
-    ) -> AnyElement {
+    fn render(&self, _launcher: &Arc<Launcher>, _is_selected: bool) -> AnyElement {
         div()
             .px_4()
             .py_2()
@@ -46,8 +38,8 @@ impl RenderableChildImpl for WeatherData {
                 div()
                     .flex()
                     .gap_5()
-                    .child(if let Some(icon) = icon {
-                        img(ImageSource::Resource(Resource::Path(icon))).size(px(24.))
+                    .child(if let Some(icon) = self.icon.as_ref() {
+                        img(Arc::clone(&icon)).size(px(24.))
                     } else {
                         img(ImageSource::Image(Arc::new(Image::empty()))).size(px(24.))
                     })

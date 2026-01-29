@@ -1,4 +1,3 @@
-use async_std::sync::Mutex;
 use glob::Pattern;
 use gpui::SharedString;
 use rayon::prelude::*;
@@ -8,13 +7,14 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
 use super::Loader;
 use super::utils::ApplicationAction;
 use super::utils::{AppData, SherlockAlias};
 use crate::launcher::Launcher;
+use crate::loader::resolve_icon_path;
 use crate::prelude::PathHelpers;
 use crate::utils::cache::BinaryCache;
 use crate::utils::{
@@ -64,7 +64,7 @@ impl Loader {
                 e.to_string()
             ))?,
         };
-        let aliases = Arc::new(Mutex::new(aliases));
+        let aliases = Arc::new(RwLock::new(aliases));
 
         // Gather '.desktop' files
         let desktop_files: Vec<PathBuf> = match applications {
@@ -113,7 +113,9 @@ impl Loader {
                                                 Some(SharedString::from(value.to_string()))
                                             }
                                         }
-                                        "icon" => data.icon = Some(value.to_string()),
+                                        "icon" => {
+                                            data.icon = resolve_icon_path(value);
+                                        }
                                         "exec" => data.exec = Some(value.to_string()),
                                         "nodisplay" if value.eq_ignore_ascii_case("true") => {
                                             return None;
@@ -132,7 +134,7 @@ impl Loader {
                                     match key.as_ref() {
                                         "name" => current_action.name = Some(value.to_string()),
                                         "exec" => current_action.exec = Some(value.to_string()),
-                                        "icon" => current_action.icon = Some(value.to_string()),
+                                        "icon" => current_action.icon = resolve_icon_path(value),
                                         _ => {}
                                     }
                                     if current_action.is_full() {
@@ -148,7 +150,7 @@ impl Loader {
                             .filter(|action| action.icon.is_none())
                             .for_each(|action| action.icon = data.icon.clone());
                         let alias = {
-                            let mut aliases = aliases.lock_blocking();
+                            let mut aliases = aliases.write().unwrap();
                             aliases.remove(data.name.as_ref().unwrap().as_str())
                         };
                         data.apply_alias(&launcher, alias, use_keywords);

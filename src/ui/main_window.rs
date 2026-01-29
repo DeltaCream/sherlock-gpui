@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, path::Path, sync::Arc};
+use std::sync::Arc;
 
 use crate::launcher::children::RenderableChild;
 use crate::launcher::children::{RenderableChildDelegate, SherlockSearch};
@@ -9,7 +9,6 @@ use gpui::{
     hsla, list, prelude::*, px, rgb,
 };
 use gpui::{AsyncApp, Task};
-use linicon::lookup_icon;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::ui::search_bar::TextInput;
@@ -22,7 +21,6 @@ pub struct InputExample {
     pub list_state: ListState,
     pub _subs: Vec<Subscription>,
     pub selected_index: usize,
-    pub icon_cache: RefCell<HashMap<String, Option<Arc<Path>>>>,
 
     // Model
     pub deferred_render_task: Option<Task<Option<()>>>,
@@ -267,34 +265,45 @@ impl InputExample {
         ));
     }
 
-    pub fn get_icon_path(&self, icon_name: &str) -> Option<Arc<Path>> {
-        // Check if we already have it
-        if let Some(cached) = self.icon_cache.borrow().get(icon_name) {
-            return cached.clone();
-        }
+    // pub fn get_icon_path(&self, icon_name: &str) -> Option<Arc<Path>> {
+    //     // Check if we already have it
+    //     if let Some(cached) = self.icon_cache.borrow().get(icon_name) {
+    //         return cached.clone();
+    //     }
 
-        let result = (|| {
-            let icon_path = lookup_icon(icon_name)
-                .with_size(24)
-                .with_search_paths(&["~/.local/share/icons/"])
-                .ok()?
-                .next()?
-                .map(|i| i.path)
-                .ok()?;
+    //     if let Ok(Some(icon)) = IconThemeGuard::lookup_icon(icon_name) {
+    //         let path_arc: Arc<Path> = Arc::from(icon);
+    //         self.icon_cache.borrow_mut().insert(icon_name.to_string(), Some(path_arc.clone()));
+    //         return Some(path_arc)
+    //     }
 
-            Some(Arc::from(icon_path.into_boxed_path()))
-        })();
+    //     let icon_size = if icon_name.ends_with(".svg") {
+    //         256
+    //     } else {
+    //         64
+    //     };
 
-        self.icon_cache
-            .borrow_mut()
-            .insert(icon_name.to_string(), result.clone());
+    //     let result = (|| {
+    //         let icon_path = lookup_icon(icon_name)
+    //             .with_size(icon_size)
+    //             .with_search_paths(&["~/.local/share/icons/"])
+    //             .ok()?
+    //             .next()?
+    //             .map(|i| i.path)
+    //             .ok()?;
 
-        result
-    }
+    //         Some(Arc::from(icon_path.into_boxed_path()))
+    //     })();
+
+    //     self.icon_cache
+    //         .borrow_mut()
+    //         .insert(icon_name.to_string(), result.clone());
+
+    //     result
+    // }
 
     fn render_list_item(&self, ad: &RenderableChild, idx: usize) -> AnyElement {
         let is_selected = self.selected_index == idx;
-        let icon = ad.icon().and_then(|i| self.get_icon_path(&i));
         div()
             .id(("keystroke", idx))
             .w_full()
@@ -321,7 +330,7 @@ impl InputExample {
                             s.bg(hsla(0., 0., 0.12, 1.0))
                         }
                     })
-                    .child(ad.render(icon, is_selected)),
+                    .child(ad.render(is_selected)),
             )
             .into_any_element()
     }

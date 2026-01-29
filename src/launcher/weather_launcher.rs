@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 use simd_json::base::{ValueAsArray, ValueAsScalar};
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use strum::Display;
 
 use super::utils::to_title_case;
+use crate::loader::resolve_icon_path;
 use crate::utils::config::ConfigGuard;
 use crate::utils::files::home_dir;
 
@@ -29,7 +31,7 @@ impl WeatherLauncher {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WeatherData {
     pub temperature: String,
-    pub icon: String,
+    pub icon: Option<Arc<Path>>,
     pub format_str: String,
     pub location: String,
     pub css: WeatherClass,
@@ -40,7 +42,7 @@ impl WeatherData {
     pub fn uninitialized() -> Self {
         Self {
             temperature: String::new(),
-            icon: String::new(),
+            icon: None,
             format_str: String::new(),
             location: String::new(),
             css: WeatherClass::None,
@@ -65,9 +67,9 @@ impl WeatherData {
                 .and_then(|f| simd_json::from_reader(f).ok())?;
 
             cached_data.icon = if matches!(launcher.icon_theme, WeatherIconTheme::Sherlock) {
-                format!("sherlock-weather-{}", cached_data.css)
+                resolve_icon_path(&format!("sherlock-weather-{}", cached_data.css))
             } else {
-                format!("weather-{}", cached_data.css)
+                resolve_icon_path(&format!("weather-{}", cached_data.css))
             };
 
             return Some(cached_data);
@@ -121,9 +123,12 @@ impl WeatherData {
         // Parse Icon
         let code = current_condition["weatherCode"].as_str()?;
         let icon = if matches!(launcher.icon_theme, WeatherIconTheme::Sherlock) {
-            format!("sherlock-weather-{}", Self::match_weather_code(code))
+            resolve_icon_path(&format!(
+                "sherlock-weather-{}",
+                Self::match_weather_code(code)
+            ))
         } else {
-            format!("weather-{}", Self::match_weather_code(code))
+            resolve_icon_path(&format!("weather-{}", Self::match_weather_code(code)))
         };
 
         // Parse wind dir

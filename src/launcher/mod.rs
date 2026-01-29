@@ -31,7 +31,7 @@ use crate::{
         weather_launcher::WeatherData,
     },
     loader::{
-        Loader,
+        Loader, resolve_icon_path,
         utils::{AppData, ApplicationAction, CounterReader, RawLauncher},
     },
     utils::{
@@ -127,7 +127,7 @@ impl LauncherType {
                 inner.icon = opts
                     .get("icon")
                     .and_then(Value::as_str)
-                    .map(|s| s.to_string());
+                    .and_then(|i| resolve_icon_path(i));
 
                 Some(vec![RenderableChild::AppLike { launcher, inner }])
             }

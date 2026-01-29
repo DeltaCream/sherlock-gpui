@@ -41,9 +41,9 @@ macro_rules! renderable_enum {
         }
 
         impl<'a> RenderableChildDelegate<'a> for $name {
-            fn render(&self, icon: Option<Arc<std::path::Path>>, is_selected: bool) -> AnyElement {
+            fn render(&self, is_selected: bool) -> AnyElement {
                 match self {
-                    $(Self::$variant {inner, launcher} => inner.render(launcher, icon, is_selected)),*
+                    $(Self::$variant {inner, launcher} => inner.render(launcher, is_selected)),*
                 }
             }
 
@@ -62,12 +62,6 @@ macro_rules! renderable_enum {
             fn search(&self) -> String {
                 match self {
                     $(Self::$variant {inner, launcher} => inner.search(launcher)),*
-                }
-            }
-
-            fn icon(&self) -> Option<String> {
-                match &self {
-                    $(Self::$variant {inner, launcher} => inner.icon(launcher)),*
                 }
             }
 
@@ -114,26 +108,19 @@ impl RenderableChild {
 }
 
 pub trait RenderableChildDelegate<'a> {
-    fn render(&self, icon: Option<Arc<std::path::Path>>, is_selected: bool) -> AnyElement;
+    fn render(&self, is_selected: bool) -> AnyElement;
     fn execute(&self, keyword: &str) -> Result<bool, SherlockError>;
     fn priority(&self) -> f32;
     fn search(&self) -> String;
-    fn icon(&self) -> Option<String>;
     fn home(&self) -> HomeType;
     fn alias(&'a self) -> Option<&'a str>;
 }
 
 pub trait RenderableChildImpl {
-    fn render(
-        &self,
-        launcher: &Arc<Launcher>,
-        icon: Option<Arc<std::path::Path>>,
-        is_selected: bool,
-    ) -> AnyElement;
+    fn render(&self, launcher: &Arc<Launcher>, is_selected: bool) -> AnyElement;
     fn execute(&self, launcher: &Arc<Launcher>, keyword: &str) -> Result<bool, SherlockError>;
     fn priority(&self, launcher: &Arc<Launcher>) -> f32;
     fn search(&self, launcher: &Arc<Launcher>) -> String;
-    fn icon(&self, launcher: &Arc<Launcher>) -> Option<String>;
 }
 
 pub trait SherlockSearch {
