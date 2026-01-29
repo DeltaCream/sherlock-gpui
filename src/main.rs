@@ -155,7 +155,7 @@ fn spawn_launcher(cx: &mut App, data: Entity<Arc<Vec<RenderableChild>>>) -> AnyW
                     // Data model
                     data,
                     deferred_render_task: None,
-                    last_query: String::new(),
+                    last_query: None,
                     filtered_indices: (0..data_len).collect(),
                 }
             })

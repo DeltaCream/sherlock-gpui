@@ -3,8 +3,9 @@ use std::sync::Arc;
 use gpui::AnyElement;
 
 use crate::{
-    launcher::Launcher, launcher::weather_launcher::WeatherData, loader::utils::AppData,
-    utils::errors::SherlockError,
+    launcher::{Launcher, weather_launcher::WeatherData},
+    loader::utils::AppData,
+    utils::{config::HomeType, errors::SherlockError},
 };
 
 pub mod app_data;
@@ -36,7 +37,7 @@ macro_rules! renderable_enum {
             ),*
         }
 
-        impl RenderableChildDelegate for $name {
+        impl<'a> RenderableChildDelegate<'a> for $name {
             fn render(&self, icon: Option<Arc<std::path::Path>>, is_selected: bool) -> AnyElement {
                 match self {
                     $(Self::$variant {inner, launcher} => inner.render(launcher, icon, is_selected)),*
@@ -66,6 +67,28 @@ macro_rules! renderable_enum {
                     $(Self::$variant {inner, launcher} => inner.icon(launcher)),*
                 }
             }
+
+            fn home(&self) -> HomeType {
+                match &self {
+                    $(Self::$variant {launcher, ..} => launcher.home),*
+                }
+            }
+
+            fn alias(&'a self) -> Option<&'a str> {
+                match self {
+                    $(
+                        Self::$variant { launcher, .. } => launcher.alias.as_deref()
+                    ),*
+                }
+            }
+        }
+
+        impl RenderableChild {
+            pub fn based_show(&self, query: &str) -> bool {
+                match self {
+                    _ => true
+                }
+            }
         }
     };
 }
@@ -85,12 +108,14 @@ impl RenderableChild {
     }
 }
 
-pub trait RenderableChildDelegate {
+pub trait RenderableChildDelegate<'a> {
     fn render(&self, icon: Option<Arc<std::path::Path>>, is_selected: bool) -> AnyElement;
     fn execute(&self, keyword: &str) -> Result<bool, SherlockError>;
     fn priority(&self) -> f32;
     fn search(&self) -> String;
     fn icon(&self) -> Option<String>;
+    fn home(&self) -> HomeType;
+    fn alias(&'a self) -> Option<&'a str>;
 }
 
 pub trait RenderableChildImpl {

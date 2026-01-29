@@ -2,6 +2,7 @@ use std::{cell::RefCell, collections::HashMap, path::Path, sync::Arc};
 
 use crate::launcher::children::RenderableChild;
 use crate::launcher::children::{RenderableChildDelegate, SherlockSearch};
+use crate::utils::config::HomeType;
 use gpui::{AnyElement, WeakEntity};
 use gpui::{
     App, Context, Entity, FocusHandle, Focusable, ListState, Subscription, Window, actions, div,
@@ -11,7 +12,7 @@ use gpui::{AsyncApp, Task};
 use linicon::lookup_icon;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::ui::search_bar::TextInput;
+use crate::ui::search_bar::{Home, TextInput};
 
 actions!(example_input, [Quit, FocusNext, FocusPrev, Execute,]);
 
@@ -27,7 +28,7 @@ pub struct InputExample {
     pub deferred_render_task: Option<Task<Option<()>>>,
     pub data: Entity<Arc<Vec<RenderableChild>>>,
     pub filtered_indices: Arc<[usize]>,
-    pub last_query: String,
+    pub last_query: Option<String>,
 }
 
 impl Focusable for InputExample {
@@ -168,7 +169,7 @@ impl InputExample {
 
         self.filtered_indices = results;
         self.selected_index = 0;
-        self.last_query = query;
+        self.last_query = Some(query);
 
         self.list_state.splice(0..old_count, new_count);
 
@@ -177,7 +178,7 @@ impl InputExample {
     pub fn filter_and_sort(&mut self, cx: &mut Context<Self>) {
         let query = self.text_input.read(cx).content.to_lowercase();
 
-        if query == self.last_query {
+        if Some(&query) == self.last_query.as_ref() {
             return;
         }
 
@@ -189,12 +190,53 @@ impl InputExample {
         self.deferred_render_task = Some(cx.spawn(
             |this: WeakEntity<InputExample>, cx: &mut AsyncApp| {
                 let mut cx = cx.clone();
+                let mode = "all";
                 async move {
                     // collects Vec<(index, priority)>
+                    //
+                    let is_home = query.is_empty(); // && mode == "all";
+
                     let mut results: Vec<(usize, f32)> = (0..data_arc.len())
                         .into_par_iter()
-                        .filter(|&i| data_arc[i].search().fuzzy_match(&query))
-                        .map(|i| (i, data_arc[i].priority()))
+                        .map(|i| (i, &data_arc[i]))
+                        .filter(|(_, data)| {
+                            let home = data.home();
+
+                            // [Rule 1]
+                            // Early return if mode applies but item is not assigned to that mode
+                            if mode != "all" && Some(mode) != data.alias() {
+                                return false;
+                            }
+
+                            // [Rule 2]
+                            // Early return if item should always show (websearch for example)
+                            if home == HomeType::Persist {
+                                return true;
+                            }
+
+                            // [Rule 3]
+                            // Early return if based show (calc for example) failed
+                            if !data.based_show(&query) {
+                                return false;
+                            }
+
+                            // [Rule 4]
+                            // Early return if not home but item is assigned to only show on home
+                            if !is_home && home == HomeType::OnlyHome {
+                                return false;
+                            }
+
+                            // [Rule 5]
+                            // Early return if item should only show on search but mode is home
+                            if is_home && home == HomeType::Search {
+                                return false;
+                            }
+
+                            // [Rule 6]
+                            // Check if query matches
+                            data.search().fuzzy_match(&query)
+                        })
+                        .map(|(i, data)| (i, data.priority()))
                         .collect();
 
                     // drop here to release lock faster
