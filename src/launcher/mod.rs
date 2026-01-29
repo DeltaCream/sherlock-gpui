@@ -19,10 +19,17 @@ pub mod web_launcher;
 // pub mod process_launcher;
 // pub mod theme_picker;
 
-use std::{collections::HashMap, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    vec,
+};
 
 use crate::{
-    launcher::{children::RenderableChild, weather_launcher::WeatherData},
+    launcher::{
+        children::{RenderableChild, calc_data::CalcData},
+        weather_launcher::WeatherData,
+    },
     loader::{
         Loader,
         utils::{AppData, ApplicationAction, CounterReader, RawLauncher},
@@ -115,7 +122,7 @@ impl LauncherType {
                     .ok()
             }
 
-            Self::Web(web) => {
+            Self::Web(_) => {
                 let mut inner = AppData::new();
                 inner.icon = opts
                     .get("icon")
@@ -123,6 +130,19 @@ impl LauncherType {
                     .map(|s| s.to_string());
 
                 Some(vec![RenderableChild::AppLike { launcher, inner }])
+            }
+
+            Self::Calc(_) => {
+                let capabilities: HashSet<String> = match opts.get("capabilities") {
+                    Some(Value::Array(arr)) => arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect(),
+                    _ => HashSet::from([String::from("calc.math"), String::from("calc.units")]),
+                };
+                let inner = CalcData::new(capabilities);
+
+                Some(vec![RenderableChild::CalcLike { launcher, inner }])
             }
 
             Self::Weather(wttr) => {

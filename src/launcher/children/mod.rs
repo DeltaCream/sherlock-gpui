@@ -2,14 +2,17 @@ use std::sync::Arc;
 
 use gpui::AnyElement;
 
+pub mod app_data;
+pub mod calc_data;
+pub mod weather_data;
+
 use crate::{
     launcher::{Launcher, weather_launcher::WeatherData},
     loader::utils::AppData,
     utils::{config::HomeType, errors::SherlockError},
 };
 
-pub mod app_data;
-pub mod weather_data;
+use calc_data::CalcData;
 
 /// Creates enum RenderableChild,
 /// ## Example:
@@ -84,9 +87,10 @@ macro_rules! renderable_enum {
         }
 
         impl RenderableChild {
-            pub fn based_show(&self, query: &str) -> bool {
+            pub fn based_show(&self, query: &str) -> Option<bool> {
                 match self {
-                    _ => true
+                    Self::CalcLike { inner, ..} => Some(inner.based_show(query)),
+                    _ => None
                 }
             }
         }
@@ -96,6 +100,7 @@ renderable_enum! {
     enum RenderableChild {
         AppLike(AppData),
         WeatherLike(WeatherData),
+        CalcLike(CalcData),
     }
 }
 

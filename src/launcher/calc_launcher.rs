@@ -14,7 +14,7 @@ use simd_json::{
     derived::ValueObjectAccess,
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::{File, create_dir_all},
     path::Path,
     sync::OnceLock,
@@ -22,10 +22,7 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
-pub struct CalculatorLauncher {
-    pub capabilities: HashSet<String>,
-}
-
+pub struct CalculatorLauncher {}
 pub struct Calculator;
 impl Calculator {
     pub fn measurement(keyword: &str, unit_str: &str) -> Option<(String, String)> {

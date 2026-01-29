@@ -12,7 +12,7 @@ use gpui::{AsyncApp, Task};
 use linicon::lookup_icon;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::ui::search_bar::{Home, TextInput};
+use crate::ui::search_bar::TextInput;
 
 actions!(example_input, [Quit, FocusNext, FocusPrev, Execute,]);
 
@@ -215,9 +215,9 @@ impl InputExample {
                             }
 
                             // [Rule 3]
-                            // Early return if based show (calc for example) failed
-                            if !data.based_show(&query) {
-                                return false;
+                            // Early return if based show (calc for example) applies
+                            if let Some(based) = data.based_show(&query) {
+                                return based;
                             }
 
                             // [Rule 4]

@@ -249,14 +249,6 @@ fn parse_bookmarks_launcher(
     LauncherType::Empty
 }
 fn parse_calculator(raw: &RawLauncher) -> LauncherType {
-    let capabilities: HashSet<String> = match raw.args.get("capabilities") {
-        Some(Value::Array(arr)) => arr
-            .iter()
-            .filter_map(|v| v.as_str().map(str::to_string))
-            .collect(),
-        _ => HashSet::from([String::from("calc.math"), String::from("calc.units")]),
-    };
-
     // initialize currencies
     let update_interval = raw
         .args
@@ -269,7 +261,7 @@ fn parse_calculator(raw: &RawLauncher) -> LauncherType {
         let _result = CURRENCIES.set(result);
     });
 
-    LauncherType::Calc(CalculatorLauncher { capabilities })
+    LauncherType::Calc(CalculatorLauncher {})
 }
 fn parse_category_launcher(_raw: &RawLauncher) -> LauncherType {
     // let value = &raw.args["categories"];
@@ -283,7 +275,7 @@ fn parse_command_launcher(_raw: &RawLauncher) -> LauncherType {
     LauncherType::Command(CommandLauncher {})
 }
 
-fn parse_debug_launcher(raw: &RawLauncher) -> LauncherType {
+fn parse_debug_launcher(_: &RawLauncher) -> LauncherType {
     // let prio = raw.priority;
     // let value = &raw.args["commands"];
     // let commands = parse_appdata(value, prio, counts, max_decimals);
