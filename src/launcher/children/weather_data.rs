@@ -1,8 +1,14 @@
 use std::sync::Arc;
 
-use gpui::{AnyElement, Image, ImageSource, IntoElement, ParentElement, Resource, Styled, div, img, linear_gradient, px};
+use gpui::{
+    AnyElement, Image, ImageSource, IntoElement, ParentElement, Resource, Styled, div, img,
+    linear_gradient, px,
+};
 
-use crate::{launcher::{children::RenderableChildImpl, weather_launcher::WeatherData}, utils::errors::SherlockError};
+use crate::{
+    launcher::{children::RenderableChildImpl, weather_launcher::WeatherData},
+    utils::errors::SherlockError,
+};
 
 impl RenderableChildImpl for WeatherData {
     fn execute(&self, _keyword: &str) -> Result<bool, SherlockError> {

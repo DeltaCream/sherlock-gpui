@@ -1,13 +1,9 @@
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement
-};
+use gpui::AnyElement;
 
 use crate::{
-    launcher::weather_launcher::WeatherData,
-    loader::utils::AppData,
-    utils::errors::SherlockError,
+    launcher::weather_launcher::WeatherData, loader::utils::AppData, utils::errors::SherlockError,
 };
 
 pub mod app_data;
@@ -94,8 +90,6 @@ pub trait RenderableChildImpl {
     fn icon(&self) -> Option<String>;
 }
 
-
-
 pub trait SherlockSearch {
     /// Both self and substring should already be lowercased to increase performance
     fn fuzzy_match<'a>(&'a self, substring: &'a str) -> bool;
@@ -134,7 +128,7 @@ impl<T: AsRef<str>> SherlockSearch for T {
 
 fn sequential_check(pattern: &[u8], target: &[u8], window_size: usize) -> bool {
     // pattern[0] was already matched by memchr at target[0]
-    let mut t_idx = 1; 
+    let mut t_idx = 1;
 
     // We start from the second character (index 1)
     for &pattern_char in &pattern[1..] {

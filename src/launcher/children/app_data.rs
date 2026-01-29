@@ -1,8 +1,14 @@
 use std::sync::Arc;
 
-use gpui::{AnyElement, Image, ImageSource, IntoElement, ParentElement, Resource, Styled, div, img, px, rgb};
+use gpui::{
+    AnyElement, Image, ImageSource, IntoElement, ParentElement, Resource, Styled, div, img, px, rgb,
+};
 
-use crate::{launcher::{ExecAttrs, children::RenderableChildImpl}, loader::utils::AppData, utils::errors::SherlockError};
+use crate::{
+    launcher::{ExecAttrs, children::RenderableChildImpl},
+    loader::utils::AppData,
+    utils::errors::SherlockError,
+};
 
 impl RenderableChildImpl for AppData {
     fn render(&self, icon: Option<Arc<std::path::Path>>, is_selected: bool) -> AnyElement {

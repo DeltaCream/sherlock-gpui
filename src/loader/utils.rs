@@ -161,8 +161,7 @@ impl AppData {
                 self.icon = Some(alias_icon.to_string());
             }
             if let Some(alias_keywords) = alias.keywords.as_ref() {
-                self.search_string =
-                    construct_search(&self.name, &alias_keywords, use_keywords);
+                self.search_string = construct_search(&self.name, &alias_keywords, use_keywords);
             } else {
                 self.search_string =
                     construct_search(&self.name, &self.search_string, use_keywords);
@@ -331,7 +330,6 @@ where
     }
     deserializer.deserialize_map(AppDataMapVisitor)
 }
-
 
 pub fn construct_search(name: &str, search_str: &str, use_keywords: bool) -> String {
     let mut s = if use_keywords {
