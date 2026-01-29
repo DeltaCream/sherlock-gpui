@@ -186,18 +186,22 @@ impl InputExample {
             |this: WeakEntity<InputExample>, cx: &mut AsyncApp| {
                 let mut cx = cx.clone();
                 async move {
+                    // collects Vec<(index, priority)>
                     let mut results: Vec<(usize, f32)> = (0..data_arc.len())
                         .into_par_iter()
                         .filter(|&i| data_arc[i].search().fuzzy_match(&query))
                         .map(|i| (i, data_arc[i].priority()))
                         .collect();
 
+                    // drop here to release lock faster
                     drop(data_arc);
 
+                    // sort based on priority
                     results.sort_unstable_by(|a, b| {
                         a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal)
                     });
 
+                    // strip the priority from results
                     let results_arc: Arc<[usize]> = results
                         .into_iter()
                         .map(|(i, _)| i)
