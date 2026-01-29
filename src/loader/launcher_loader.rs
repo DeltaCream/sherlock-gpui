@@ -3,12 +3,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::Value;
 use simd_json::prelude::ArrayTrait;
-use std::{
-    collections::{HashMap, HashSet},
-    fs::File,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{collections::HashMap, fs::File, path::PathBuf, sync::Arc};
 
 use crate::{
     launcher::{
