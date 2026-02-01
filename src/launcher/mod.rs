@@ -19,6 +19,7 @@ pub mod web_launcher;
 // pub mod process_launcher;
 // pub mod theme_picker;
 
+use serde::de::IntoDeserializer;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -31,8 +32,12 @@ use crate::{
         weather_launcher::WeatherData,
     },
     loader::{
-        Loader, resolve_icon_path,
-        utils::{AppData, ApplicationAction, CounterReader, RawLauncher},
+        Loader,
+        application_loader::parse_priority,
+        resolve_icon_path,
+        utils::{
+            AppData, ApplicationAction, CounterReader, RawLauncher, deserialize_named_appdata,
+        },
     },
     utils::{
         command_launch::spawn_detached, config::HomeType, errors::SherlockError,
@@ -122,16 +127,6 @@ impl LauncherType {
                     .ok()
             }
 
-            Self::Web(_) => {
-                let mut inner = AppData::new();
-                inner.icon = opts
-                    .get("icon")
-                    .and_then(Value::as_str)
-                    .and_then(|i| resolve_icon_path(i));
-
-                Some(vec![RenderableChild::AppLike { launcher, inner }])
-            }
-
             Self::Calc(_) => {
                 let capabilities: HashSet<String> = match opts.get("capabilities") {
                     Some(Value::Array(arr)) => arr
@@ -143,6 +138,34 @@ impl LauncherType {
                 let inner = CalcData::new(capabilities);
 
                 Some(vec![RenderableChild::CalcLike { launcher, inner }])
+            }
+
+            Self::Command(_) => {
+                let cmds = opts.get("commands")?;
+                let app_data =
+                    deserialize_named_appdata(cmds.clone().into_deserializer()).unwrap_or_default();
+                let children: Vec<RenderableChild> = app_data
+                    .into_iter()
+                    .map(|mut inner| {
+                        let count = inner
+                            .exec
+                            .as_deref()
+                            .and_then(|exec| counts.get(exec))
+                            .copied()
+                            .unwrap_or(0u32);
+                        inner.icon = inner
+                            .icon
+                            .and_then(|i| i.to_str().and_then(resolve_icon_path));
+                        inner.priority =
+                            Some(parse_priority(launcher.priority as f32, count, decimals));
+                        RenderableChild::AppLike {
+                            launcher: Arc::clone(&launcher),
+                            inner,
+                        }
+                    })
+                    .collect();
+
+                Some(children)
             }
 
             Self::Weather(wttr) => {
@@ -191,6 +214,17 @@ impl LauncherType {
                     }
                 }
             }
+
+            Self::Web(_) => {
+                let mut inner = AppData::new();
+                inner.icon = opts
+                    .get("icon")
+                    .and_then(Value::as_str)
+                    .and_then(|i| resolve_icon_path(i));
+
+                Some(vec![RenderableChild::AppLike { launcher, inner }])
+            }
+
             _ => None,
         }
     }
@@ -280,6 +314,12 @@ impl Launcher {
                     };
                     spawn_detached(&cmd, keyword, variables)?;
                     increment(&exec);
+                }
+            }
+            "command" => {
+                if let Some(exec) = what.exec {
+                    spawn_detached(exec, keyword, variables)?;
+                    increment(exec);
                 }
             }
             "web_launcher" | "bookmarks" => {

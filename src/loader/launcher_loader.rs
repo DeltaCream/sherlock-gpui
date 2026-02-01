@@ -185,26 +185,6 @@ fn parse_launcher_configs(
     return Ok((config, non_breaking));
 }
 
-// fn parse_appdata(
-//     value: &Value,
-//     prio: f32,
-//     counts: &HashMap<String, u32>,
-//     max_decimals: i32,
-// ) -> Vec<AppData> {
-//     let data: HashSet<AppDataSerde> =
-//         deserialize_named_appdata(value.clone().into_deserializer()).unwrap_or_default();
-//     data.into_iter()
-//         .map(|mut c| {
-//             let count = c
-//                 .exec
-//                 .as_deref()
-//                 .and_then(|exec| counts.get(exec))
-//                 .unwrap_or(&0u32);
-//             c.priority = parse_priority(prio, *count, max_decimals);
-//             c
-//         })
-//         .collect::<Vec<AppData>>()
-// }
 fn parse_app_launcher(raw: &RawLauncher) -> LauncherType {
     let use_keywords = raw
         .args
