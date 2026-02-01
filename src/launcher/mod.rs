@@ -273,7 +273,12 @@ impl Launcher {
         match self.method.as_str() {
             "app_launcher" => {
                 if let Some(exec) = what.exec {
-                    spawn_detached(exec, variables)?;
+                    let cmd = if what.term {
+                        format!(r#"{{terminal}} {exec}"#)
+                    } else {
+                        exec.to_string()
+                    };
+                    spawn_detached(&cmd, keyword, variables)?;
                     increment(&exec);
                 }
             }
