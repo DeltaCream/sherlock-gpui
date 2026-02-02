@@ -8,7 +8,7 @@ pub mod weather_data;
 
 use crate::{
     launcher::{Launcher, weather_launcher::WeatherData},
-    loader::utils::{AppData, ExecVariable},
+    loader::utils::{AppData, ApplicationAction, ExecVariable},
     utils::{config::HomeType, errors::SherlockError},
 };
 
@@ -85,6 +85,13 @@ macro_rules! renderable_enum {
                     _ => None,
                 }
             }
+
+            fn actions(&self) -> Option<&[ApplicationAction]> {
+                match self {
+                    Self::AppLike { inner, ..} => Some(inner.actions.as_ref()),
+                    _ => None
+                }
+            }
         }
 
         impl RenderableChild {
@@ -126,6 +133,7 @@ pub trait RenderableChildDelegate<'a> {
     fn home(&self) -> HomeType;
     fn alias(&'a self) -> Option<&'a str>;
     fn vars(&self) -> Option<&[ExecVariable]>;
+    fn actions(&self) -> Option<&[ApplicationAction]>;
 }
 
 pub trait RenderableChildImpl {

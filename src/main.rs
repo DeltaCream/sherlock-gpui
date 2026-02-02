@@ -26,7 +26,7 @@ mod prelude;
 mod ui;
 mod utils;
 
-use ui::main_window::{Execute, FocusNext, FocusPrev, InputExample, Quit};
+use ui::main_window::{Execute, FocusNext, FocusPrev, SherloockMainView, Quit};
 use ui::search_bar::{
     Backspace, Copy, Cut, Delete, DeleteAll, End, Home, Left, Paste, Right, SelectAll, TextInput,
 };
@@ -163,13 +163,13 @@ fn spawn_launcher(cx: &mut App, data: Entity<Arc<Vec<RenderableChild>>>) -> AnyW
             });
             cx.new(|cx| {
                 let data_len = data.read(cx).len();
-                let sub = cx.observe(&text_input, move |this: &mut InputExample, _ev, cx| {
+                let sub = cx.observe(&text_input, move |this: &mut SherloockMainView, _ev, cx| {
                     this.selected_index = 0;
                     this.filter_and_sort(cx);
                 });
                 let list_state = ListState::new(data_len, ListAlignment::Top, px(48.));
 
-                let mut view = InputExample {
+                let mut view = SherloockMainView {
                     text_input,
                     focus_handle: cx.focus_handle(),
                     list_state,

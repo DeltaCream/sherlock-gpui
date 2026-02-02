@@ -4,7 +4,7 @@ use crate::launcher::children::RenderableChild;
 use crate::launcher::children::{RenderableChildDelegate, SherlockSearch};
 use crate::loader::utils::ExecVariable;
 use crate::utils::config::HomeType;
-use gpui::{AnyElement, AppContext, SharedString, WeakEntity};
+use gpui::{AnyElement, AppContext, SharedString, WeakEntity, relative};
 use gpui::{
     App, Context, Entity, FocusHandle, Focusable, ListState, Subscription, Window, actions, div,
     hsla, list, prelude::*, px, rgb,
@@ -21,7 +21,7 @@ actions!(
     [Quit, FocusNext, FocusPrev, NextVar, PrevVar, Execute,]
 );
 
-pub struct InputExample {
+pub struct SherloockMainView {
     pub text_input: Entity<TextInput>,
     pub focus_handle: FocusHandle,
     pub list_state: ListState,
@@ -39,12 +39,12 @@ pub struct InputExample {
     pub last_query: Option<String>,
 }
 
-impl Focusable for InputExample {
+impl Focusable for SherloockMainView {
     fn focus_handle(&self, _: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
-impl InputExample {
+impl SherloockMainView {
     fn focus_next(&mut self, _: &FocusNext, _: &mut Window, cx: &mut Context<Self>) {
         let count = self.data.read(cx).len();
         if count == 0 {
@@ -181,7 +181,7 @@ impl InputExample {
     }
 }
 
-impl Render for InputExample {
+impl Render for SherloockMainView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let weak_self = cx.entity().downgrade();
         div()
@@ -256,6 +256,7 @@ impl Render for InputExample {
                     .h(px(30.))
                     .line_height(px(30.))
                     .w_full()
+                    .flex()
                     .bg(hsla(0., 0., 0.098, 1.0))
                     .border_t_1()
                     .border_color(hsla(0., 0., 0.1882, 1.0))
@@ -263,11 +264,42 @@ impl Render for InputExample {
                     .text_size(px(13.))
                     .items_center()
                     .text_color(hsla(0.6, 0.0217, 0.3608, 1.0))
-                    .child(String::from("Sherlock")),
+                    .child(String::from("Sherlock"))
+                    .child(div().flex_1())
+                    .child({
+                        let guard = self.data.read(cx);
+                        if let Some(true) = self
+                            .filtered_indices
+                            .get(self.selected_index)
+                            .and_then(|i| guard.get(*i))
+                            .and_then(RenderableChild::actions)
+                            .map(|a| !a.is_empty())
+                        {
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap(px(5.))
+                                .child(div().mr_1().child(SharedString::from("Additional Actions")))
+                                .child(keybind_box("⌘"))
+                                .child(keybind_box("L"))
+                        } else {
+                            div()
+                        }
+                    }),
             )
     }
 }
-impl InputExample {
+fn keybind_box(text: &'static str) -> impl Element {
+    div()
+        .flex_none()
+        .p(px(5.))
+        .bg(rgb(0x262626))
+        .rounded_sm()
+        .text_size(px(11.))
+        .line_height(relative(1.0))
+        .child(text)
+}
+impl SherloockMainView {
     pub fn apply_results(&mut self, results: Arc<[usize]>, query: String, cx: &mut Context<Self>) {
         let old_count = self.list_state.item_count();
         let new_count = results.len();
@@ -328,7 +360,7 @@ impl InputExample {
 
         let data_arc = self.data.read(cx).clone();
         self.deferred_render_task = Some(cx.spawn(
-            |this: WeakEntity<InputExample>, cx: &mut AsyncApp| {
+            |this: WeakEntity<SherloockMainView>, cx: &mut AsyncApp| {
                 let mut cx = cx.clone();
                 let mode = "all";
                 async move {
