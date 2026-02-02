@@ -14,13 +14,15 @@ use crate::{
     launcher::children::RenderableChild,
     loader::{CustomIconTheme, IconThemeGuard, Loader, assets::Assets},
     ui::main_window::{NextVar, PrevVar},
-    utils::{config::SherlockConfig, errors::SherlockErrorType},
+    utils::{
+        config::{ConfigGuard, SherlockConfig},
+        errors::SherlockErrorType,
+    },
 };
 
 mod launcher;
 mod loader;
 mod prelude;
-mod search_view;
 mod ui;
 mod utils;
 
@@ -118,12 +120,23 @@ async fn main() {
         cx.spawn(|cx: &mut AsyncApp| {
             let cx = cx.clone();
             async move {
+                let mut win: Option<AnyWindowHandle> = None;
                 loop {
                     if let Ok((_stream, _)) = listener.accept().await {
                         cx.update(|cx| {
-                            spawn_launcher(cx, data.clone());
+                            // Close old window
+                            if let Some(old_win) = win.take() {
+                                let _ = old_win.update(cx, |_, win, _| {
+                                    win.remove_window();
+                                });
+                            }
+
+                            // Create new window
+                            win = Some(spawn_launcher(cx, data.clone()));
                         })
                         .ok();
+                    } else {
+                        eprintln!("Broken UNIX Socket.");
                     }
                 }
             }
@@ -156,7 +169,7 @@ fn spawn_launcher(cx: &mut App, data: Entity<Arc<Vec<RenderableChild>>>) -> AnyW
                 });
                 let list_state = ListState::new(data_len, ListAlignment::Top, px(48.));
 
-                InputExample {
+                let mut view = InputExample {
                     text_input,
                     focus_handle: cx.focus_handle(),
                     list_state,
@@ -170,7 +183,10 @@ fn spawn_launcher(cx: &mut App, data: Entity<Arc<Vec<RenderableChild>>>) -> AnyW
                     deferred_render_task: None,
                     last_query: None,
                     filtered_indices: (0..data_len).collect(),
-                }
+                };
+                view.filter_and_sort(cx);
+
+                view
             })
         })
         .unwrap();
@@ -186,6 +202,10 @@ fn spawn_launcher(cx: &mut App, data: Entity<Arc<Vec<RenderableChild>>>) -> AnyW
 }
 
 fn get_window_options() -> WindowOptions {
+    let (width, height) = ConfigGuard::read()
+        .map(|c| (c.appearance.width, c.appearance.height))
+        .unwrap_or((900i32, 600i32));
+
     WindowOptions {
         kind: WindowKind::LayerShell(LayerShellOptions {
             namespace: "sherlock".to_string(),
@@ -194,7 +214,7 @@ fn get_window_options() -> WindowOptions {
         }),
         window_bounds: Some(WindowBounds::Windowed(Bounds {
             origin: point(px(0.), px(0.)),
-            size: Size::new(px(900.), px(600.)),
+            size: Size::new(px(width as f32), px(height as f32)),
         })),
         window_background: WindowBackgroundAppearance::Blurred,
         ..Default::default()

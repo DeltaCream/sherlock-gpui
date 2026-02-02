@@ -629,7 +629,7 @@ impl Render for TextInput {
             .on_mouse_move(cx.listener(Self::on_mouse_move))
             .text_color(rgb(0xcccccc))
             .w_auto()
-            .child(if let Some(variable) = &self.variable {
+            .child(if self.variable.is_some() {
                 div()
                     .line_height(px(12.))
                     .text_size(px(12.))

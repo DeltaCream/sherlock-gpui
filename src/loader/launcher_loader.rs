@@ -1,6 +1,4 @@
 use gpui::{App, Entity};
-use once_cell::sync::Lazy;
-use regex::Regex;
 use serde_json::Value;
 use simd_json::prelude::ArrayTrait;
 use std::{collections::HashMap, fs::File, path::PathBuf, sync::Arc};
@@ -29,10 +27,6 @@ use crate::{
 
 use super::Loader;
 use super::utils::CounterReader;
-
-pub static COLOR_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^(rgb|hsl)*\(?(\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3})\)?|\(?(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}\s*%\w*)\)?|^#([a-fA-F0-9]{6,8})$").unwrap()
-});
 
 impl Loader {
     pub fn load_launchers(

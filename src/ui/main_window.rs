@@ -121,14 +121,28 @@ impl InputExample {
             .get(self.filtered_indices[self.selected_index])
         {
             match selected.execute(keyword, &variables) {
-                Ok(exit) if exit => win.remove_window(),
+                Ok(exit) if exit => self.close_window(win, cx),
                 Err(e) => eprintln!("{e}"),
                 _ => {}
             }
         }
     }
-    fn quit(&mut self, _: &Quit, win: &mut Window, _: &mut Context<Self>) {
+    fn quit(&mut self, _: &Quit, win: &mut Window, cx: &mut Context<Self>) {
+        self.close_window(win, cx);
+    }
+    fn close_window(&mut self, win: &mut Window, cx: &mut Context<Self>) {
+        // Cleanup
+        self.variable_input.clear();
+        self.filtered_indices = Arc::new([]);
+        if let Some(task) = self.deferred_render_task.take() {
+            drop(task)
+        }
+
+        // Close window
         win.remove_window();
+
+        // Propagate state change
+        cx.notify();
     }
     fn update_vars(&mut self, cx: &mut Context<Self>) {
         let Some(idx) = self.filtered_indices.get(self.selected_index).copied() else {

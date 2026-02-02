@@ -5,7 +5,7 @@ use std::{
 
 use gpui::{IntoElement, ParentElement, SharedString, Styled, div, px, rgb};
 
-use crate::launcher::{calc_launcher::Calculator, children::RenderableChildImpl};
+use crate::{launcher::children::RenderableChildImpl, utils::intent::Intent};
 
 #[derive(Clone)]
 pub struct CalcData {
@@ -37,39 +37,17 @@ impl CalcData {
             }
         }
 
-        if result.is_none()
-            && (self.capabilities.contains("calc.lengths")
-                || self.capabilities.contains("calc.units"))
         {
-            result = Calculator::measurement(&keyword, "lengths");
-        }
+            let intent = Intent::parse(keyword);
+            let r = match intent {
+                Intent::ColorConvert { .. } => intent.execute(),
+                Intent::Conversion { .. } => intent.execute(),
+                _ => None,
+            };
 
-        if result.is_none()
-            && (self.capabilities.contains("calc.weights")
-                || self.capabilities.contains("calc.units"))
-        {
-            result = Calculator::measurement(&keyword, "weights");
-        }
-
-        if result.is_none()
-            && (self.capabilities.contains("calc.volumes")
-                || self.capabilities.contains("calc.units"))
-        {
-            result = Calculator::measurement(&keyword, "volumes");
-        }
-
-        if result.is_none()
-            && (self.capabilities.contains("calc.temperatures")
-                || self.capabilities.contains("calc.units"))
-        {
-            result = Calculator::temperature(&keyword);
-        }
-
-        if result.is_none()
-            && (self.capabilities.contains("calc.currencies")
-                || self.capabilities.contains("calc.units"))
-        {
-            result = Calculator::measurement(&keyword, "currencies");
+            if let Some(r) = r {
+                result = Some((r.clone(), r));
+            }
         }
 
         let show = result.is_some();
