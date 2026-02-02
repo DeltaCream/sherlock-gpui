@@ -5,11 +5,7 @@ use std::{
 
 use gpui::{IntoElement, ParentElement, SharedString, Styled, div, px, rgb};
 
-use crate::{
-    launcher::{ExecAttrs, children::RenderableChildImpl},
-    sherlock_error,
-    utils::{errors::SherlockErrorType, intent::Intent},
-};
+use crate::{launcher::children::RenderableChildImpl, utils::intent::Intent};
 
 #[derive(Clone)]
 pub struct CalcData {
