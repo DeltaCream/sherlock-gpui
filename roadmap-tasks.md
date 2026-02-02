@@ -33,16 +33,17 @@ Currently, the search bar takes inputs, but the input does not change the
 sorting and filtering of the content.
 
 ## [4] Implement filtering logic for calculator
+[done]
 The calculators visibility is based on a couple of conditions. See original sherlock repo (src/ui/tiles/calc_tile.rs#based_show). This should be implmented similarly and if possible also improved.
 
 ## [5] Implement modes
 The "mode" + <space> should switch sherlock modes again. Required for implentation of launcher alias
 
 ## [6] Variable input fields
+[done]
 This requires making the searchbar variable width (only taking as much space as needed) and inserting N new search fields next to it. Their values will also be required in the execution later, so we will need to pass them along somehow.
 
 ## [7] Context Menu
-[in progress]
 - [ ] Implement context menu indicator in the status bar
 - [ ] Implement context menu keybind
 - [ ] Implement context menu openining based on keybind and closing on <esc>
