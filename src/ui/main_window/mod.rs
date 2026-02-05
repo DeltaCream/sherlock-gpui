@@ -88,13 +88,13 @@ impl SherlockMainWindow {
             }
         }
 
-        self.selected_index = 0;
         self.active_bar = 0;
         self.filtered_indices = results;
         self.last_query = Some(query);
 
         self.list_state.splice(0..old_count, new_count);
-        self.list_state.scroll_to_reveal_item(self.selected_index);
+
+        self.focus_nth(0, cx);
 
         cx.notify();
     }
