@@ -59,7 +59,7 @@ impl<'a> RenderableChildImpl<'a> for AppData {
             )
             .into_any_element()
     }
-    fn build_exec(&'a self, launcher: &'a Arc<Launcher>) -> Option<ExecMode<'a>> {
+    fn build_exec(&self, launcher: &Arc<Launcher>) -> Option<ExecMode> {
         Some(ExecMode::from_appdata(self, launcher))
     }
     fn priority(&self, launcher: &Arc<Launcher>) -> f32 {

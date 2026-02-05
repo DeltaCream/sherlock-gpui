@@ -35,14 +35,10 @@ use crate::{
         Loader,
         application_loader::parse_priority,
         resolve_icon_path,
-        utils::{
-            AppData, ApplicationAction, CounterReader, RawLauncher, deserialize_named_appdata,
-        },
+        utils::{AppData, ApplicationAction, RawLauncher, deserialize_named_appdata},
     },
-    utils::{
-        command_launch::spawn_detached, config::HomeType, errors::SherlockError,
-        websearch::websearch,
-    },
+    ui::main_window::LauncherMode,
+    utils::config::HomeType,
 };
 
 use app_launcher::AppLauncher;
@@ -138,6 +134,35 @@ impl LauncherType {
                 let inner = CalcData::new(capabilities);
 
                 Some(vec![RenderableChild::CalcLike { launcher, inner }])
+            }
+
+            Self::Category(_) => {
+                let cmds = opts.get("categories")?;
+                let app_data =
+                    deserialize_named_appdata(cmds.clone().into_deserializer()).unwrap_or_default();
+
+                let children: Vec<RenderableChild> = app_data
+                    .into_iter()
+                    .map(|mut inner| {
+                        let count = inner
+                            .exec
+                            .as_deref()
+                            .and_then(|exec| counts.get(exec))
+                            .copied()
+                            .unwrap_or(0u32);
+                        inner.icon = inner
+                            .icon
+                            .and_then(|i| i.to_str().and_then(resolve_icon_path));
+                        inner.priority =
+                            Some(parse_priority(launcher.priority as f32, count, decimals));
+                        RenderableChild::AppLike {
+                            launcher: Arc::clone(&launcher),
+                            inner,
+                        }
+                    })
+                    .collect();
+
+                Some(children)
             }
 
             Self::Command(_) => {
@@ -297,94 +322,66 @@ impl Launcher {
             add_actions: raw.add_actions,
         }
     }
-
-    pub fn execute<'a>(
-        &self,
-        what: &'a ExecMode,
-        keyword: &str,
-        variables: &[(SharedString, SharedString)],
-    ) -> Result<bool, SherlockError> {
-        match what {
-            ExecMode::App { exec, terminal } => {
-                let cmd = if *terminal {
-                    format!(r#"{{terminal}} {exec}"#)
-                } else {
-                    exec.to_string()
-                };
-                spawn_detached(&cmd, keyword, variables)?;
-                increment(exec);
-            }
-            ExecMode::Commmand { exec } => {
-                spawn_detached(exec, keyword, variables)?;
-                increment(exec);
-            }
-            ExecMode::Web {
-                engine,
-                browser,
-                exec,
-            } => {
-                let engine = engine.as_deref().unwrap_or("plain");
-                let query = if let Some(query) = exec {
-                    query
-                } else {
-                    keyword
-                };
-                websearch(engine, query, browser.as_deref(), variables)?;
-            }
-            _ => {}
-        };
-
-        Ok(true)
-    }
-}
-fn increment(key: &str) {
-    if let Ok(count_reader) = CounterReader::new() {
-        let _ = count_reader.increment(key);
-    };
 }
 
-pub enum ExecMode<'a> {
+pub enum ExecMode {
     App {
-        exec: &'a str,
+        exec: String,
         terminal: bool,
     },
     Commmand {
-        exec: &'a str,
+        exec: String,
+    },
+    Category {
+        category: LauncherMode,
     },
     Web {
-        engine: Option<&'a str>,
-        browser: Option<&'a str>,
-        exec: Option<&'a str>,
+        engine: Option<String>,
+        browser: Option<String>,
+        exec: Option<String>,
+    },
+    Copy {
+        content: SharedString,
     },
     None,
 }
-impl<'a> ExecMode<'a> {
-    pub fn from_appdata(app_data: &'a AppData, launcher: &'a Arc<Launcher>) -> Self {
+impl ExecMode {
+    pub fn from_appdata(app_data: &AppData, launcher: &Arc<Launcher>) -> Self {
         match &launcher.launcher_type {
             LauncherType::App(_) => Self::App {
-                exec: app_data.exec.as_deref().unwrap_or(""),
+                exec: app_data.exec.clone().unwrap_or_default(),
                 terminal: app_data.terminal,
             },
             LauncherType::Bookmark(bkm) => Self::Web {
                 engine: None,
-                browser: Some(&bkm.target_browser),
-                exec: app_data.exec.as_deref(),
+                browser: Some(bkm.target_browser.clone()),
+                exec: app_data.exec.clone(),
+            },
+            LauncherType::Category(_) => Self::Category {
+                category: LauncherMode::Alias {
+                    short: app_data
+                        .exec
+                        .as_ref()
+                        .map(SharedString::from)
+                        .unwrap_or_default(),
+                    name: app_data.name.clone().unwrap_or_default(),
+                },
             },
             LauncherType::Command(_) => Self::Commmand {
-                exec: app_data.exec.as_deref().unwrap_or(""),
+                exec: app_data.exec.clone().unwrap_or_default(),
             },
             LauncherType::Web(web) => Self::Web {
-                engine: Some(&web.engine),
-                browser: web.browser.as_deref(),
-                exec: app_data.exec.as_deref(),
+                engine: Some(web.engine.clone()),
+                browser: web.browser.clone(),
+                exec: app_data.exec.clone(),
             },
             _ => Self::None,
         }
     }
-    pub fn from_app_action(action: &'a ApplicationAction, _launcher: &'a Arc<Launcher>) -> Self {
+    pub fn from_app_action(action: &ApplicationAction, _launcher: &Arc<Launcher>) -> Self {
         match action.method.as_str() {
             "app_launcher" | "command" => Self::Commmand {
-                exec: action.exec.as_deref().unwrap_or(""),
+                exec: action.exec.clone().unwrap_or_default(),
             },
 
             _ => Self::None,

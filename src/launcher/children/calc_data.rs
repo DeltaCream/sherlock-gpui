@@ -65,7 +65,7 @@ impl<'a> RenderableChildImpl<'a> for CalcData {
     fn search(&'a self, _launcher: &std::sync::Arc<crate::launcher::Launcher>) -> &'a str {
         ""
     }
-    fn build_exec(&'a self, _launcher: &Arc<Launcher>) -> Option<ExecMode<'a>> {
+    fn build_exec(&self, _launcher: &Arc<Launcher>) -> Option<ExecMode> {
         let lock = self.result.read().ok()?;
         let (_, res) = lock.as_ref()?;
         Some(ExecMode::Copy {

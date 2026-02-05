@@ -117,12 +117,12 @@ impl SherlockMainWindow {
             cx.notify();
         }
     }
-    pub(self) fn execute_helper<'a>(
-        &self,
-        what: ExecMode<'a>,
+    pub(self) fn execute_helper(
+        &mut self,
+        what: ExecMode,
         keyword: &str,
         variables: &[(SharedString, SharedString)],
-        cx: &Context<Self>,
+        cx: &mut Context<Self>,
     ) -> Result<bool, SherlockError> {
         match what {
             ExecMode::App { exec, terminal } => {
@@ -133,11 +133,20 @@ impl SherlockMainWindow {
                 };
 
                 spawn_detached(&cmd, keyword, variables)?;
-                increment(exec);
+                increment(&exec);
+            }
+            ExecMode::Category { category } => {
+                self.mode = category;
+                self.text_input.update(cx, |this, _cx| {
+                    this.reset();
+                });
+                self.filter_and_sort(cx);
+                cx.notify();
+                return Ok(false);
             }
             ExecMode::Commmand { exec } => {
-                spawn_detached(exec, keyword, variables)?;
-                increment(exec);
+                spawn_detached(&exec, keyword, variables)?;
+                increment(&exec);
             }
             ExecMode::Copy { content } => {
                 cx.write_to_clipboard(ClipboardItem::new_string(content.to_string()));
@@ -148,7 +157,7 @@ impl SherlockMainWindow {
                 exec,
             } => {
                 let engine = engine.as_deref().unwrap_or("plain");
-                let query = if let Some(query) = exec {
+                let query = if let Some(query) = exec.as_deref() {
                     query
                 } else {
                     keyword
@@ -169,6 +178,7 @@ impl SherlockMainWindow {
                     .get(self.filtered_indices[self.selected_index])
                 {
                     let what = selected.build_action_exec(action);
+
                     match self.execute_helper(what, "", &[], cx) {
                         Ok(exit) if exit => self.close_window(win, cx),
                         Err(e) => eprintln!("{e}"),
@@ -177,7 +187,7 @@ impl SherlockMainWindow {
                 }
             }
         } else {
-            let keyword = self.text_input.read(cx).content.as_str();
+            let keyword = self.text_input.read(cx).content.clone();
             // collect variables
             let mut variables: SmallVec<[(SharedString, SharedString); 4]> = SmallVec::new();
             for s in &self.variable_input {
@@ -185,15 +195,18 @@ impl SherlockMainWindow {
                 variables.push((guard.placeholder.clone(), guard.content.clone()));
             }
 
-            if let Some(selected) = self
-                .data
-                .read(cx)
-                .get(self.filtered_indices[self.selected_index])
-            {
+            let data = self.data.read(cx).clone();
+            if let Some(selected) = data.get(self.filtered_indices[self.selected_index]) {
                 if let Some(what) = selected.build_exec() {
-                    match self.execute_helper(what, keyword, &variables, cx) {
-                        Ok(exit) if exit => self.close_window(win, cx),
-                        Err(e) => eprintln!("{e}"),
+                    match self.execute_helper(what, keyword.as_ref(), &variables, cx) {
+                        Ok(exit) if exit => {
+                            self.close_window(win, cx);
+                            return;
+                        }
+                        Err(e) => {
+                            eprintln!("{e}");
+                            return;
+                        }
                         _ => {}
                     }
                 }

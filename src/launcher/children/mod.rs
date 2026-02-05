@@ -47,13 +47,13 @@ macro_rules! renderable_enum {
                 }
             }
 
-            fn build_action_exec(&'a self, action: &'a ApplicationAction) -> ExecMode<'a> {
+            fn build_action_exec(&self, action: &ApplicationAction) -> ExecMode {
                 match self {
                     $(Self::$variant {launcher, ..} => { ExecMode::from_app_action(action, launcher) }),*
                 }
             }
 
-            fn build_exec(&'a self) -> Option<ExecMode<'a>> {
+            fn build_exec(&self) -> Option<ExecMode> {
                 match self {
                     $(Self::$variant {launcher, inner} => inner.build_exec(launcher)),*
                 }
@@ -151,8 +151,8 @@ impl RenderableChild {
 
 pub trait RenderableChildDelegate<'a> {
     fn render(&self, is_selected: bool) -> AnyElement;
-    fn build_action_exec(&'a self, action: &'a ApplicationAction) -> ExecMode<'a>;
-    fn build_exec(&'a self) -> Option<ExecMode<'a>>;
+    fn build_action_exec(&'a self, action: &'a ApplicationAction) -> ExecMode;
+    fn build_exec(&self) -> Option<ExecMode>;
     fn search(&'a self) -> &'a str;
     fn vars(&self) -> Option<&[ExecVariable]>;
     fn actions(&self) -> Option<Arc<[Arc<ApplicationAction>]>>;
@@ -171,7 +171,7 @@ pub trait LauncherValues<'a> {
 
 pub trait RenderableChildImpl<'a> {
     fn render(&self, launcher: &Arc<Launcher>, is_selected: bool) -> AnyElement;
-    fn build_exec(&'a self, launcher: &'a Arc<Launcher>) -> Option<ExecMode<'a>>;
+    fn build_exec(&self, launcher: &Arc<Launcher>) -> Option<ExecMode>;
     fn priority(&self, launcher: &Arc<Launcher>) -> f32;
     fn search(&'a self, launcher: &Arc<Launcher>) -> &'a str;
 }

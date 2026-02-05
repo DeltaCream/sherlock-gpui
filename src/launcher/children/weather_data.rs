@@ -10,7 +10,7 @@ use crate::launcher::{
 };
 
 impl<'a> RenderableChildImpl<'a> for WeatherData {
-    fn build_exec(&'a self, _launcher: &Arc<Launcher>) -> Option<ExecMode<'a>> {
+    fn build_exec(&self, _launcher: &Arc<Launcher>) -> Option<ExecMode> {
         None
     }
     fn priority(&self, launcher: &Arc<Launcher>) -> f32 {
