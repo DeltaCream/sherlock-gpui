@@ -1,23 +1,17 @@
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, Image, ImageSource, IntoElement, ParentElement, SharedString, Styled, div, img,
-    linear_gradient, px,
+    AnyElement, Image, ImageSource, IntoElement, ParentElement, Styled, div, img, linear_gradient,
+    px,
 };
 
-use crate::{
-    launcher::{Launcher, children::RenderableChildImpl, weather_launcher::WeatherData},
-    utils::errors::SherlockError,
+use crate::launcher::{
+    ExecMode, Launcher, children::RenderableChildImpl, weather_launcher::WeatherData,
 };
 
 impl<'a> RenderableChildImpl<'a> for WeatherData {
-    fn execute(
-        &self,
-        _launcher: &Arc<Launcher>,
-        _keyword: &str,
-        _variables: &[(SharedString, SharedString)],
-    ) -> Result<bool, SherlockError> {
-        Ok(false)
+    fn build_exec(&'a self, _launcher: &Arc<Launcher>) -> Option<ExecMode<'a>> {
+        None
     }
     fn priority(&self, launcher: &Arc<Launcher>) -> f32 {
         launcher.priority as f32

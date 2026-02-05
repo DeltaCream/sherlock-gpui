@@ -1,14 +1,10 @@
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, Image, ImageSource, IntoElement, ParentElement, SharedString, Styled, div, img, px,
-    rgb,
-};
+use gpui::{AnyElement, Image, ImageSource, IntoElement, ParentElement, Styled, div, img, px, rgb};
 
 use crate::{
     launcher::{ExecMode, Launcher, children::RenderableChildImpl},
     loader::utils::AppData,
-    utils::errors::SherlockError,
 };
 
 impl<'a> RenderableChildImpl<'a> for AppData {
@@ -63,14 +59,8 @@ impl<'a> RenderableChildImpl<'a> for AppData {
             )
             .into_any_element()
     }
-    fn execute(
-        &self,
-        launcher: &Arc<Launcher>,
-        keyword: &str,
-        variables: &[(SharedString, SharedString)],
-    ) -> Result<bool, SherlockError> {
-        let attrs = ExecMode::from_appdata(self, launcher);
-        launcher.execute(&attrs, keyword, variables)
+    fn build_exec(&'a self, launcher: &'a Arc<Launcher>) -> Option<ExecMode<'a>> {
+        Some(ExecMode::from_appdata(self, launcher))
     }
     fn priority(&self, launcher: &Arc<Launcher>) -> f32 {
         self.priority.unwrap_or(launcher.priority as f32)

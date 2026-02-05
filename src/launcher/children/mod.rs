@@ -9,7 +9,7 @@ pub mod weather_data;
 use crate::{
     launcher::{ExecMode, Launcher, LauncherType, weather_launcher::WeatherData},
     loader::utils::{AppData, ApplicationAction, ExecVariable},
-    utils::{config::HomeType, errors::SherlockError},
+    utils::config::HomeType,
 };
 
 use calc_data::CalcData;
@@ -47,18 +47,15 @@ macro_rules! renderable_enum {
                 }
             }
 
-            fn execute(&self, keyword: &str, variables: &[(SharedString, SharedString)]) -> Result<bool, SherlockError> {
+            fn build_action_exec(&'a self, action: &'a ApplicationAction) -> ExecMode<'a> {
                 match self {
-                    $(Self::$variant {inner, launcher} => inner.execute(launcher, keyword, variables)),*
+                    $(Self::$variant {launcher, ..} => { ExecMode::from_app_action(action, launcher) }),*
                 }
             }
 
-            fn execute_action(&self, action: &'a ApplicationAction) -> Result<bool, SherlockError> {
+            fn build_exec(&'a self) -> Option<ExecMode<'a>> {
                 match self {
-                    $(Self::$variant {launcher, ..} => {
-                        let what = ExecMode::from_app_action(action, launcher);
-                        launcher.execute(&what, "", &[])
-                    }),*
+                    $(Self::$variant {launcher, inner} => inner.build_exec(launcher)),*
                 }
             }
 
@@ -154,12 +151,8 @@ impl RenderableChild {
 
 pub trait RenderableChildDelegate<'a> {
     fn render(&self, is_selected: bool) -> AnyElement;
-    fn execute(
-        &self,
-        keyword: &str,
-        variables: &[(SharedString, SharedString)],
-    ) -> Result<bool, SherlockError>;
-    fn execute_action(&self, action: &'a ApplicationAction) -> Result<bool, SherlockError>;
+    fn build_action_exec(&'a self, action: &'a ApplicationAction) -> ExecMode<'a>;
+    fn build_exec(&'a self) -> Option<ExecMode<'a>>;
     fn search(&'a self) -> &'a str;
     fn vars(&self) -> Option<&[ExecVariable]>;
     fn actions(&self) -> Option<Arc<[Arc<ApplicationAction>]>>;
@@ -178,12 +171,7 @@ pub trait LauncherValues<'a> {
 
 pub trait RenderableChildImpl<'a> {
     fn render(&self, launcher: &Arc<Launcher>, is_selected: bool) -> AnyElement;
-    fn execute(
-        &self,
-        launcher: &Arc<Launcher>,
-        keyword: &str,
-        variables: &[(SharedString, SharedString)],
-    ) -> Result<bool, SherlockError>;
+    fn build_exec(&'a self, launcher: &'a Arc<Launcher>) -> Option<ExecMode<'a>>;
     fn priority(&self, launcher: &Arc<Launcher>) -> f32;
     fn search(&'a self, launcher: &Arc<Launcher>) -> &'a str;
 }

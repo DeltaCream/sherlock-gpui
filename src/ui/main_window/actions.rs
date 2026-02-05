@@ -1,12 +1,16 @@
 use std::sync::Arc;
 
-use gpui::{AppContext, Context, SharedString, Window, actions};
+use gpui::{AppContext, ClipboardItem, Context, SharedString, Window, actions};
 use smallvec::SmallVec;
 
 use crate::{
-    launcher::children::{RenderableChild, RenderableChildDelegate},
-    loader::utils::ExecVariable,
+    launcher::{
+        ExecMode,
+        children::{RenderableChild, RenderableChildDelegate},
+    },
+    loader::utils::{CounterReader, ExecVariable},
     ui::{main_window::SherlockMainWindow, search_bar::TextInput},
+    utils::{command_launch::spawn_detached, errors::SherlockError, websearch::websearch},
 };
 
 actions!(
@@ -113,6 +117,49 @@ impl SherlockMainWindow {
             cx.notify();
         }
     }
+    pub(self) fn execute_helper<'a>(
+        &self,
+        what: ExecMode<'a>,
+        keyword: &str,
+        variables: &[(SharedString, SharedString)],
+        cx: &Context<Self>,
+    ) -> Result<bool, SherlockError> {
+        match what {
+            ExecMode::App { exec, terminal } => {
+                let cmd = if terminal {
+                    format!(r#"{{terminal}} {exec}"#)
+                } else {
+                    exec.to_string()
+                };
+
+                spawn_detached(&cmd, keyword, variables)?;
+                increment(exec);
+            }
+            ExecMode::Commmand { exec } => {
+                spawn_detached(exec, keyword, variables)?;
+                increment(exec);
+            }
+            ExecMode::Copy { content } => {
+                cx.write_to_clipboard(ClipboardItem::new_string(content.to_string()));
+            }
+            ExecMode::Web {
+                engine,
+                browser,
+                exec,
+            } => {
+                let engine = engine.as_deref().unwrap_or("plain");
+                let query = if let Some(query) = exec {
+                    query
+                } else {
+                    keyword
+                };
+                websearch(engine, query, browser.as_deref(), variables)?;
+            }
+            _ => {}
+        };
+
+        Ok(true)
+    }
     pub(super) fn execute(&mut self, _: &Execute, win: &mut Window, cx: &mut Context<Self>) {
         if let Some(idx) = self.context_idx {
             if let Some(action) = self.context_actions.get(idx) {
@@ -121,7 +168,8 @@ impl SherlockMainWindow {
                     .read(cx)
                     .get(self.filtered_indices[self.selected_index])
                 {
-                    match selected.execute_action(action) {
+                    let what = selected.build_action_exec(action);
+                    match self.execute_helper(what, "", &[], cx) {
                         Ok(exit) if exit => self.close_window(win, cx),
                         Err(e) => eprintln!("{e}"),
                         _ => {}
@@ -142,10 +190,12 @@ impl SherlockMainWindow {
                 .read(cx)
                 .get(self.filtered_indices[self.selected_index])
             {
-                match selected.execute(keyword, &variables) {
-                    Ok(exit) if exit => self.close_window(win, cx),
-                    Err(e) => eprintln!("{e}"),
-                    _ => {}
+                if let Some(what) = selected.build_exec() {
+                    match self.execute_helper(what, keyword, &variables, cx) {
+                        Ok(exit) if exit => self.close_window(win, cx),
+                        Err(e) => eprintln!("{e}"),
+                        _ => {}
+                    }
                 }
             }
         }
@@ -179,8 +229,7 @@ impl SherlockMainWindow {
             self.close_window(win, cx);
         }
     }
-    pub(super) fn backspace(&mut self, _: &Backspace, win: &mut Window, cx: &mut Context<Self>) {
-        println!("testing");
+    pub(super) fn backspace(&mut self, _: &Backspace, _win: &mut Window, cx: &mut Context<Self>) {
         cx.stop_propagation();
     }
     pub(super) fn close_window(&mut self, win: &mut Window, cx: &mut Context<Self>) {
@@ -232,4 +281,11 @@ impl SherlockMainWindow {
             self.variable_input.clear();
         }
     }
+}
+
+#[inline(always)]
+fn increment(key: &str) {
+    if let Ok(count_reader) = CounterReader::new() {
+        let _ = count_reader.increment(key);
+    };
 }

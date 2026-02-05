@@ -5,7 +5,10 @@ use std::{
 
 use gpui::{IntoElement, ParentElement, SharedString, Styled, div, px, rgb};
 
-use crate::{launcher::children::RenderableChildImpl, utils::intent::Intent};
+use crate::{
+    launcher::{ExecMode, Launcher, children::RenderableChildImpl},
+    utils::intent::Intent,
+};
 
 #[derive(Clone)]
 pub struct CalcData {
@@ -62,13 +65,12 @@ impl<'a> RenderableChildImpl<'a> for CalcData {
     fn search(&'a self, _launcher: &std::sync::Arc<crate::launcher::Launcher>) -> &'a str {
         ""
     }
-    fn execute(
-        &self,
-        _launcher: &std::sync::Arc<crate::launcher::Launcher>,
-        _keyword: &str,
-        _variables: &[(SharedString, SharedString)],
-    ) -> Result<bool, crate::utils::errors::SherlockError> {
-        Ok(false)
+    fn build_exec(&'a self, _launcher: &Arc<Launcher>) -> Option<ExecMode<'a>> {
+        let lock = self.result.read().ok()?;
+        let (_, res) = lock.as_ref()?;
+        Some(ExecMode::Copy {
+            content: res.clone(),
+        })
     }
     fn priority(&self, launcher: &std::sync::Arc<crate::launcher::Launcher>) -> f32 {
         launcher.priority as f32
