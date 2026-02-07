@@ -122,15 +122,35 @@ macro_rules! renderable_enum {
             }
         }
 
-        impl RenderableChild {
-            pub fn based_show(&self, query: &str) -> Option<bool> {
-                match self {
-                    Self::CalcLike { inner, ..} => Some(inner.based_show(query)),
-                    _ => None
+    };
+}
+impl RenderableChild {
+    pub fn based_show(&self, query: &str) -> Option<bool> {
+        match self {
+            Self::CalcLike { inner, .. } => Some(inner.based_show(query)),
+            _ => None,
+        }
+    }
+    pub async fn update_async(mut self) -> Option<Self> {
+        match &mut self {
+            Self::WeatherLike { inner, launcher } => {
+                let LauncherType::Weather(wtr) = &launcher.launcher_type else {
+                    return None;
+                };
+
+                if let Some((new_weather_data, changed)) = WeatherData::fetch_async(wtr).await {
+                    if changed {
+                        *inner = new_weather_data;
+                    } else {
+                        return None;
+                    }
                 }
             }
+            _ => {}
         }
-    };
+
+        Some(self)
+    }
 }
 renderable_enum! {
     enum RenderableChild {

@@ -243,8 +243,6 @@ fn parse_calculator(raw: &RawLauncher) -> LauncherType {
     LauncherType::Calc(CalculatorLauncher {})
 }
 fn parse_category_launcher(_raw: &RawLauncher) -> LauncherType {
-    // let value = &raw.args["categories"];
-    // let categories = parse_appdata(value, prio, counts, max_decimals);
     LauncherType::Category(CategoryLauncher {})
 }
 

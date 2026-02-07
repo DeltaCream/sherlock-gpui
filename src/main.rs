@@ -1,3 +1,4 @@
+use futures::future::join_all;
 use once_cell::sync::OnceCell;
 use std::{
     io::Write,
@@ -11,7 +12,7 @@ use gpui::{
 };
 
 use crate::{
-    launcher::children::RenderableChild,
+    launcher::children::{LauncherValues, RenderableChild},
     loader::{CustomIconTheme, IconThemeGuard, Loader, assets::Assets},
     ui::{
         main_window::{LauncherMode, NextVar, OpenContext, PrevVar},
@@ -131,18 +132,61 @@ async fn main() {
                 let mut win: Option<AnyWindowHandle> = None;
                 loop {
                     if let Ok((_stream, _)) = listener.accept().await {
-                        cx.update(|cx| {
-                            // Close old window
-                            if let Some(old_win) = win.take() {
-                                let _ = old_win.update(cx, |_, win, _| {
-                                    win.remove_window();
-                                });
-                            }
+                        // Create new window
+                        cx.update({
+                            |cx| {
+                                // Close old window
+                                if let Some(old_win) = win.take() {
+                                    let _ = old_win.update(cx, |_, win, _| {
+                                        win.remove_window();
+                                    });
+                                }
 
-                            // Create new window
-                            win = Some(spawn_launcher(cx, data.clone(), Arc::clone(&modes)));
+                                win = Some(spawn_launcher(cx, data.clone(), Arc::clone(&modes)));
+                            }
                         })
                         .ok();
+
+                        // update content
+                        let data_clone = data.clone();
+                        {
+                            let Ok(data) = data_clone.read_with(&cx, |this, cx| this.clone())
+                            else {
+                                return;
+                            };
+
+                            let update_futures = data
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, item)| item.is_async())
+                                .map(|(idx, item)| async move {
+                                    (idx, item.clone().update_async().await)
+                                });
+
+                            let updates = join_all(update_futures).await;
+
+                            if !updates.is_empty() {
+                                let _ = cx.update(|cx| {
+                                    data_clone.update(cx, |items_arc, cx| {
+                                        let items_vec = Arc::make_mut(items_arc);
+                                        updates
+                                            .into_iter()
+                                            .filter_map(|(idx, update)| {
+                                                if let Some(update) = update {
+                                                    Some((idx, update))
+                                                } else {
+                                                    None
+                                                }
+                                            })
+                                            .for_each(|(idx, update)| {
+                                                items_vec[idx] = update;
+                                            });
+
+                                        cx.notify();
+                                    })
+                                });
+                            }
+                        }
                     } else {
                         eprintln!("Broken UNIX Socket.");
                     }

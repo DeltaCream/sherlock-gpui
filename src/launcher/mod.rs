@@ -197,40 +197,6 @@ impl LauncherType {
                 match WeatherData::from_cache(wttr) {
                     Some(inner) => Some(vec![RenderableChild::WeatherLike { launcher, inner }]),
                     None => {
-                        // 1. Data isn't cached, start the fetch
-                        let wttr_clone = wttr.clone();
-
-                        cx.spawn(|cx: &mut AsyncApp| {
-                            let cx = cx.clone();
-                            async move {
-                                if let Some((new_weather_data, _)) =
-                                    WeatherData::fetch_async(&wttr_clone).await
-                                {
-                                    let _ = cx.update(|cx| {
-                                        // Update the entity's inner data
-                                        data_handle.update(cx, {
-                                            |items_arc, cx| {
-                                                let items = Arc::make_mut(items_arc);
-
-                                                for item in items.iter_mut() {
-                                                    if let RenderableChild::WeatherLike {
-                                                        inner,
-                                                        ..
-                                                    } = item
-                                                    {
-                                                        *inner = new_weather_data.clone();
-                                                    }
-                                                }
-
-                                                cx.notify();
-                                            }
-                                        });
-                                    });
-                                }
-                            }
-                        })
-                        .detach();
-
                         // Return None or a "Loading" placeholder for now
                         Some(vec![RenderableChild::WeatherLike {
                             launcher: Arc::clone(&launcher),

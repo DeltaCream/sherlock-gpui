@@ -5158,6 +5158,7 @@ dependencies = [
  "bytes",
  "chrono",
  "freedesktop-icons",
+ "futures",
  "glob",
  "gpui",
  "image",
