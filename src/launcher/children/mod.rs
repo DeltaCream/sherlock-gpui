@@ -135,18 +135,18 @@ impl RenderableChild {
         match &mut self {
             Self::WeatherLike { inner, launcher } => {
                 let LauncherType::Weather(wtr) = &launcher.launcher_type else {
-                    return None;
+                    unreachable!("WeatherLike variant must have LauncherType::Weather");
                 };
 
-                if let Some((new_weather_data, changed)) = WeatherData::fetch_async(wtr).await {
-                    if changed {
-                        *inner = new_weather_data;
-                    } else {
-                        return None;
-                    }
+                let (new_weather_data, changed) = WeatherData::fetch_async(wtr).await?;
+
+                if changed {
+                    *inner = new_weather_data;
+                } else {
+                    return None;
                 }
             }
-            _ => {}
+            _ => return None,
         }
 
         Some(self)
