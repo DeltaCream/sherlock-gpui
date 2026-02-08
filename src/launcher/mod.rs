@@ -38,7 +38,7 @@ use crate::{
         utils::{AppData, ApplicationAction, RawLauncher, deserialize_named_appdata},
     },
     ui::main_window::LauncherMode,
-    utils::config::HomeType,
+    utils::{config::HomeType, intent::Capabilities},
 };
 
 use app_launcher::AppLauncher;
@@ -122,14 +122,16 @@ impl LauncherType {
             }
 
             Self::Calc(_) => {
-                let capabilities: HashSet<String> = match opts.get("capabilities") {
+                let capabilities: Vec<String> = match opts.get("capabilities") {
                     Some(Value::Array(arr)) => arr
                         .iter()
                         .filter_map(|v| v.as_str().map(str::to_string))
                         .collect(),
-                    _ => HashSet::from([String::from("calc.math"), String::from("calc.units")]),
+                    _ => vec![String::from("calc.math"), String::from("calc.units")],
                 };
-                let inner = CalcData::new(capabilities);
+                let caps = Capabilities::from_strings(&capabilities);
+                println!("{:?}", caps);
+                let inner = CalcData::new(caps);
 
                 Some(vec![RenderableChild::CalcLike { launcher, inner }])
             }

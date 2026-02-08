@@ -1,23 +1,20 @@
-use std::{
-    collections::HashSet,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
 use gpui::{IntoElement, ParentElement, SharedString, Styled, div, px, rgb};
 
 use crate::{
     launcher::{ExecMode, Launcher, children::RenderableChildImpl},
-    utils::intent::Intent,
+    utils::intent::{Capabilities, Intent},
 };
 
 #[derive(Clone)]
 pub struct CalcData {
-    capabilities: HashSet<String>,
+    capabilities: Capabilities,
     result: Arc<RwLock<Option<(SharedString, SharedString)>>>,
 }
 
 impl CalcData {
-    pub fn new(capabilities: HashSet<String>) -> Self {
+    pub fn new(capabilities: Capabilities) -> Self {
         Self {
             capabilities,
             result: Arc::new(RwLock::new(None)),
@@ -30,7 +27,7 @@ impl CalcData {
 
         let mut result = None;
 
-        if self.capabilities.contains("calc.math") {
+        if self.capabilities.allows(Capabilities::MATH) {
             let trimmed_keyword = keyword.trim();
             if let Ok(r) = meval::eval_str(trimmed_keyword) {
                 let r = r.to_string();
@@ -41,7 +38,7 @@ impl CalcData {
         }
 
         {
-            let intent = Intent::parse(keyword);
+            let intent = Intent::parse(keyword, &self.capabilities);
             let r = match intent {
                 Intent::ColorConvert { .. } => intent.execute(),
                 Intent::Conversion { .. } => intent.execute(),

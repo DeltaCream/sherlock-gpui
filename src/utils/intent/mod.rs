@@ -74,7 +74,7 @@ impl<'a> Intent<'a> {
 }
 
 impl<'a> Intent<'a> {
-    pub fn parse(input: &'a str) -> Intent<'a> {
+    pub fn parse(input: &'a str, caps: &Capabilities) -> Intent<'a> {
         let raw = input.trim();
         if raw.is_empty() {
             return Intent::None;
@@ -114,7 +114,7 @@ impl<'a> Intent<'a> {
             return intent;
         }
 
-        if let Some(intent) = Intent::try_parse_unit_conversion(&tokens) {
+        if let Some(intent) = Intent::try_parse_unit_conversion(&tokens, caps) {
             return intent;
         }
 
@@ -192,7 +192,7 @@ impl<'a> Intent<'a> {
         None
     }
 
-    fn try_parse_unit_conversion(tokens: &[&'a str]) -> Option<Intent<'a>> {
+    fn try_parse_unit_conversion(tokens: &[&'a str], caps: &Capabilities) -> Option<Intent<'a>> {
         let connector_idx = tokens
             .iter()
             .position(|t| matches!(*t, "to" | "in" | "as"))?;
@@ -202,7 +202,7 @@ impl<'a> Intent<'a> {
         let (value, from) = if connector_idx >= 2 {
             // Case: ["100", "kg", "to", "lbs"]
             let v = tokens[0].parse::<f64>().ok()?;
-            let f = tokens[1].parse::<Unit>().ok()?;
+            let f = Unit::parse_with_capabilities(tokens[1], caps)?;
             (v, f)
         } else if connector_idx == 1 {
             let first = &tokens[0];
@@ -212,13 +212,13 @@ impl<'a> Intent<'a> {
                 // Case: ["100kg", "to", "lbs"]
                 let (v_str, u_str) = first.split_at(idx);
                 let v = v_str.replace(',', "").parse::<f64>().ok()?;
-                let f = u_str.parse::<Unit>().ok()?;
+                let f = Unit::parse_with_capabilities(u_str, caps)?;
                 (v, f)
             } else {
                 // Case: ["$100", "to", "eur"]
                 let first_char_len = first.chars().next()?.len_utf8();
                 let (u_str, v_str) = first.split_at(first_char_len);
-                let f = u_str.parse::<Unit>().ok()?;
+                let f = Unit::parse_with_capabilities(u_str, caps)?;
                 let v = v_str.replace(',', "").parse::<f64>().ok()?;
                 (v, f)
             }
@@ -249,6 +249,7 @@ macro_rules! define_units {
             }
         }
 
+        #[derive(Clone, Debug)]
         pub struct Capabilities(u32);
         impl Capabilities {
             pub const NONE: u32 = 0;
@@ -256,14 +257,27 @@ macro_rules! define_units {
             pub const EVERYTHING: u32 = u32::MAX;
 
             #[inline]
-            pub fn allows(mask: u32, cap: u32) -> bool {
-                (mask & cap) != 0
+            pub fn allows(&self, cap: u32) -> bool {
+                (self.0 & cap) != 0
+            }
+        }
+
+        impl std::ops::BitOr for Capabilities {
+            type Output = Self;
+            fn bitor(self, rhs: Self) -> Self {
+                Self(self.0 | rhs.0)
+            }
+        }
+
+        impl std::ops::BitOrAssign<u32> for Capabilities {
+            fn bitor_assign(&mut self, rhs: u32) {
+                self.0 |= rhs;
             }
         }
 
         #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
         pub enum Unit {
-            $($($variant),*),*
+            $( $( $variant, )* )*
         }
 
         impl Unit {
@@ -313,37 +327,38 @@ macro_rules! define_units {
                     )*
                 }
             }
-        }
 
-        impl std::str::FromStr for Unit {
-            type Err = ();
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
+            pub fn parse_with_capabilities(s: &str, caps: &Capabilities) -> Option<Self> {
                 let s = s.trim();
-                if s.is_empty() { return Err(()); }
+                if s.is_empty() { return None; }
                 let s_lower = s.to_lowercase();
                 let s_ptr = s_lower.as_str();
 
                 $(
-                    $(
-                        if [$($alias),*].contains(&s_ptr) {
-                            return Ok(Unit::$variant);
-                        }
-                    )*
+                    if caps.allows(Capabilities::$cap_const) {
+                        $(
+                            if [$($alias),*].contains(&s_ptr) {
+                                return Some(Unit::$variant);
+                            }
+                        )*
+                    }
                 )*
 
                     if s_lower.len() >= 3 {
                         $(
-                            $(
-                                for alias in [$($alias),*] {
-                                    if alias.len() > s_lower.len() && alias.starts_with(&s_lower) {
-                                        return Ok(Unit::$variant);
+                            if caps.allows(Capabilities::$cap_const) {
+                                $(
+                                    for alias in [$($alias),*] {
+                                        if alias.len() > s_lower.len() && alias.starts_with(&s_lower) {
+                                            return Some(Unit::$variant);
+                                        }
                                     }
-                                }
-                            )*
+                                )*
+                            }
                         )*
                     }
 
-                Err(())
+                None
             }
         }
     };
@@ -379,10 +394,56 @@ impl Unit {
         self.raw_factor()
     }
 }
+impl Capabilities {
+    pub fn from_strings(strs: &[String]) -> Self {
+        let mut mask = Self::NONE;
+        for s in strs {
+            mask |= match s.as_str() {
+                "calc.currencies" => Self::CURRENCY,
+                "calc.math" => Self::MATH,
+                "colors" => Self::COLORS,
+
+                // all units
+                "calc.units" => {
+                    Self::LENGTH
+                        | Self::VOLUME
+                        | Self::WEIGHT
+                        | Self::TEMPERATURE
+                        | Self::PRESSURE
+                        | Self::DIGITAL
+                        | Self::TIME
+                        | Self::AREA
+                        | Self::SPEED
+                }
+
+                // individual units
+                "calc.length" => Self::LENGTH,
+                "calc.volume" => Self::VOLUME,
+                "calc.weight" => Self::WEIGHT,
+                "calc.temperature" => Self::TEMPERATURE,
+                "calc.pressure" => Self::PRESSURE,
+                "calc.digital" => Self::DIGITAL,
+                "calc.time" => Self::TIME,
+                "calc.area" => Self::AREA,
+                "calc.speed" => Self::SPEED,
+
+                _ => Self::NONE,
+            }
+        }
+
+        Self(mask)
+    }
+}
 
 define_units! {
-    Currency, CURRENCY {
+    Math, MATH {
         cap: 1 << 0,
+    }
+    Colors, COLORS {
+        cap: 1 << 1,
+    }
+    Currency, CURRENCY {
+        cap: 1 << 2,
         Usd: ["usd", "dollar", "dollars", "bucks", "$"] => 1.0, "$",
         Eur: ["eur", "euro", "euros", "€"] => 1.0, "€",
         Jpy: ["jpy", "yen", "japanese yen", "¥"] => 1.0, "¥",
@@ -401,7 +462,7 @@ define_units! {
         Pln: ["pln", "polish", "złoty", "zł"] => 1.0, "zł",
     }
     Length, LENGTH {
-        cap: 1 << 1,
+        cap: 1 << 3,
         Millimeter: ["mm", "millimeter", "millimeters"] => 0.001, "mm",
         Centimeter: ["cm", "centimeter", "centimeters"] => 0.01, "cm",
         Meter: ["m", "meter", "meters"] => 1.0, "m",
@@ -413,7 +474,7 @@ define_units! {
         NauticalMile: ["nm", "nautical mile"] => 1852.0, "nmi",
     }
     Volume, VOLUME {
-        cap: 1 << 2,
+        cap: 1 << 4,
         Milliliter: ["ml", "milliliter", "milliliters", "cc"] => 0.001, "ml",
         Centiliter: ["cl", "centiliter"] => 0.01, "cl",
         Liter: ["l", "liter", "liters"] => 1.0, "l",
@@ -431,7 +492,7 @@ define_units! {
         ImperialGallon: ["imp gal"] => 4.54609, "imp gal",
     }
     Weight, WEIGHT {
-        cap: 1 << 3,
+        cap: 1 << 5,
         Milligram: ["mg", "milligram", "milligrams"] => 0.000001, "mg",
         Gram: ["g", "gram", "grams"] => 0.001, "g",
         Kilogram: ["kg", "kilogram", "kilograms", "kilo", "kilos"] => 1.0, "kg",
@@ -446,12 +507,12 @@ define_units! {
         TroyOunce: ["ozt", "troy ounce", "troy ounces"] => 0.0311035, "ozt",
     }
     Temperature, TEMPERATURE {
-        cap: 1 << 4,
+        cap: 1 << 6,
         Celsius: ["c", "celsius", "°c", "°"] => 1.0, "°C",
         Fahrenheit: ["f", "fahrenheit", "°f"] => 1.0, "°F",
     }
     Pressure, PRESSURE {
-        cap: 1 << 5,
+        cap: 1 << 7,
         Pascal: ["pa", "pascal", "pascals"] => 0.00001, "Pa",
         Kilopascal: ["kpa", "kilopascal"] => 0.01, "kPa",
         Bar: ["bar", "bars"] => 1.0, "bar",
@@ -460,7 +521,7 @@ define_units! {
         Torr: ["torr", "mmhg"] => 0.00133322, "mmHg",
     }
     Digital, DIGITAL {
-        cap: 1 << 6,
+        cap: 1 << 8,
         Bit: ["bit", "bits", "b"] => 0.125, "bit",
         Kilobit: ["kb", "kilobit"] => 128.0, "kb",
         Megabit: ["mb", "megabit"] => 131072.0, "Mb",
@@ -473,7 +534,7 @@ define_units! {
         Petabyte: ["pb", "petabyte", "PB"] => 1125899906842624.0, "PB",
     }
     Time, TIME {
-        cap: 1 << 7,
+        cap: 1 << 9,
         Milliseconds: ["ms", "millisecond", "milliseconds"] => 0.001, "ms",
         Seconds: ["s", "sec", "second", "seconds"] => 1.0, "s",
         Minutes: ["min", "minute", "minutes"] => 60.0, "min",
@@ -484,7 +545,7 @@ define_units! {
         Years: ["yr", "year", "years"] => 31556952.0, "yr",
     }
     Area, AREA {
-        cap: 1 << 8,
+        cap: 1 << 10,
         SquareMeter: ["m2", "sq m", "sq meter"] => 1.0, "m²",
         SquareKilometer: ["km2", "sq km"] => 1000000.0, "km²",
         SquareFoot: ["ft2", "sq ft", "sq feet"] => 0.092903, "ft²",
@@ -493,7 +554,7 @@ define_units! {
         Hectare: ["ha", "hectare"] => 10000.0, "ha",
     }
     Speed, SPEED {
-        cap: 1 << 9,
+        cap: 1 << 11,
         MetersPerSecond: ["ms", "m/s", "meters per second"] => 1.0, "m/s",
         KilometersPerHour: ["kmh", "km/h", "kph"] => 0.277778, "km/h",
         MilesPerHour: ["mph", "mile per hour", "miles per hour"] => 0.44704, "mph",
@@ -507,54 +568,55 @@ mod tests {
 
     #[test]
     fn test_intents() {
+        let caps = Capabilities(Capabilities::EVERYTHING);
         let cases = vec![
             // --- Basic Units ---
             (
                 "50 meters to feet",
                 Intent::Conversion {
                     value: 50.0,
-                    from: "meters".parse().unwrap(),
-                    to: "feet".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("meters", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("feet", &caps).unwrap(),
                 },
             ),
             (
                 "50m in yards",
                 Intent::Conversion {
                     value: 50.0,
-                    from: "m".parse().unwrap(),
-                    to: "yards".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("m", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("yards", &caps).unwrap(),
                 },
             ),
             (
                 "10.5 eur as usd",
                 Intent::Conversion {
                     value: 10.5,
-                    from: "eur".parse().unwrap(),
-                    to: "usd".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("eur", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("usd", &caps).unwrap(),
                 },
             ),
             (
                 "convert 100 kg to lbs",
                 Intent::Conversion {
                     value: 100.0,
-                    from: "kg".parse().unwrap(),
-                    to: "lbs".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("kg", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("lbs", &caps).unwrap(),
                 },
             ),
             (
                 "how much is 500 miles in km",
                 Intent::Conversion {
                     value: 500.0,
-                    from: "miles".parse().unwrap(),
-                    to: "km".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("miles", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("km", &caps).unwrap(),
                 },
             ),
             (
                 "what is 1.5 atmospheres in psi",
                 Intent::Conversion {
                     value: 1.5,
-                    from: "atmospheres".parse().unwrap(),
-                    to: "psi".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("atmospheres", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("psi", &caps).unwrap(),
                 },
             ),
             // --- No-Space & Unit Variations ---
@@ -562,24 +624,24 @@ mod tests {
                 "32c to f",
                 Intent::Conversion {
                     value: 32.0,
-                    from: "c".parse().unwrap(),
-                    to: "f".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("c", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("f", &caps).unwrap(),
                 },
             ),
             (
                 "100km to miles",
                 Intent::Conversion {
                     value: 100.0,
-                    from: "km".parse().unwrap(),
-                    to: "miles".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("km", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("miles", &caps).unwrap(),
                 },
             ),
             (
                 "0.5in as cm",
                 Intent::Conversion {
                     value: 0.5,
-                    from: "in".parse().unwrap(),
-                    to: "cm".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("in", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("cm", &caps).unwrap(),
                 },
             ),
             // --- Colors ---
@@ -621,8 +683,8 @@ mod tests {
                 "   50m   to   ft  ",
                 Intent::Conversion {
                     value: 50.0,
-                    from: "m".parse().unwrap(),
-                    to: "ft".parse().unwrap(),
+                    from: Unit::parse_with_capabilities("m", &caps).unwrap(),
+                    to: Unit::parse_with_capabilities("ft", &caps).unwrap(),
                 },
             ),
             ("Convert 1,000 to hex", Intent::None),
@@ -634,7 +696,7 @@ mod tests {
         ];
 
         for (input, expected) in cases {
-            let result = Intent::parse(input);
+            let result = Intent::parse(input, &caps);
             assert_eq!(
                 result, expected,
                 "Failed on input: '{}'\nGot: {:?}\nExpected: {:?}",
