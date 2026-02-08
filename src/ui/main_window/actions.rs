@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 use crate::{
     launcher::{
         ExecMode,
-        children::{RenderableChild, RenderableChildDelegate},
+        children::{LauncherValues, RenderableChild, RenderableChildDelegate},
     },
     loader::utils::{CounterReader, ExecVariable},
     ui::{main_window::SherlockMainWindow, search_bar::TextInput},
@@ -28,7 +28,27 @@ actions!(
 );
 
 impl SherlockMainWindow {
+    pub fn focus_first(&mut self, cx: &mut Context<Self>) {
+        // early return if no indices
+        if self.filtered_indices.is_empty() {
+            return 
+        }
+
+        let first_valid_index = {
+            let data_guard = self.data.read(cx);
+            self.filtered_indices.iter().position(|idx| data_guard[*idx].spawn_focus())
+        };
+
+        if let Some(n) = first_valid_index {
+            self.focus_nth(n, cx);
+        }
+    }
     pub fn focus_nth(&mut self, n: usize, cx: &mut Context<Self>) {
+        // early return on invalid index
+        if self.filtered_indices.len() <= n {
+            return
+        }
+
         self.selected_index = n;
         self.list_state.scroll_to_reveal_item(n);
 

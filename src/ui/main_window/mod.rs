@@ -94,7 +94,7 @@ impl SherlockMainWindow {
 
         self.list_state.splice(0..old_count, new_count);
 
-        self.focus_nth(0, cx);
+        self.focus_first(cx);
 
         cx.notify();
     }

@@ -112,6 +112,12 @@ macro_rules! renderable_enum {
                 }
             }
 
+            fn spawn_focus(&self) -> bool {
+                match self {
+                    $(Self::$variant {launcher, ..} => launcher.spawn_focus),*
+                }
+            }
+
             fn launcher_type(&'a self) -> &'a LauncherType {
                 &self.launcher().launcher_type
             }
@@ -218,6 +224,7 @@ pub trait LauncherValues<'a> {
     fn priority(&self) -> f32;
     fn is_async(&self) -> bool;
     fn home(&self) -> HomeType;
+    fn spawn_focus(&self) -> bool;
     fn launcher_type(&'a self) -> &'a LauncherType;
 }
 
