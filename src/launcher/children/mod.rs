@@ -150,20 +150,19 @@ impl RenderableChild {
                     launcher
                         .get_current_player()
                         .and_then(|player| launcher.get_metadata(&player))
-                })?;
+                });
 
-                let changed = if let Some(raw) = &inner.raw {
-                    raw.metadata.title != new_inner.metadata.title
-                } else {
-                    true
-                };
-
-                if !changed {
+                // early return if nothing has changed
+                if new_inner.as_ref().and_then(|i| i.metadata.title.as_ref())
+                    == inner.raw.as_ref().and_then(|i| i.metadata.title.as_ref())
+                {
                     return None;
                 }
 
-                inner.image = new_inner.get_image().await.map(|(image, _)| image);
-                inner.raw = Some(new_inner);
+                if let Some(new_inner) = &new_inner {
+                    inner.image = new_inner.get_image().await.map(|(image, _)| image);
+                }
+                inner.raw = new_inner;
             }
             Self::WeatherLike { inner, launcher } => {
                 let LauncherType::Weather(wtr) = &launcher.launcher_type else {
