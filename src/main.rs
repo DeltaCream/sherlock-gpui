@@ -3,7 +3,7 @@ use once_cell::sync::OnceCell;
 use std::{
     collections::HashMap,
     io::Write,
-    sync::{Arc, RwLock},
+    sync::{Arc, OnceLock, RwLock},
 };
 use tokio::net::UnixListener;
 
@@ -41,6 +41,8 @@ use utils::errors::SherlockError;
 
 static ICONS: OnceCell<RwLock<CustomIconTheme>> = OnceCell::new();
 static CONFIG: OnceCell<RwLock<SherlockConfig>> = OnceCell::new();
+
+static CONTEXT_MENU_BIND: OnceLock<String> = OnceLock::new();
 
 fn setup() -> Result<(), SherlockError> {
     let mut flags = Loader::load_flags()?;
@@ -132,7 +134,6 @@ async fn main() {
                         );
                     }
                 } else if let Some(binding) = action_type.into_bind(key) {
-                    // This will overwrite the default if the 'key' (keystroke) is the same
                     add_binding(key, binding);
                 }
             }

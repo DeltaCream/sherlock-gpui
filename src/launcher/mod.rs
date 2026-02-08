@@ -47,7 +47,7 @@ use bookmark_launcher::BookmarkLauncher;
 use calc_launcher::CalculatorLauncher;
 use category_launcher::CategoryLauncher;
 use event_launcher::EventLauncher;
-use gpui::{App, Entity, SharedString};
+use gpui::SharedString;
 use serde_json::Value;
 use system_cmd_launcher::CommandLauncher;
 use weather_launcher::WeatherLauncher;

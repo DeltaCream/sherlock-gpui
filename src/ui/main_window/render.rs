@@ -7,8 +7,10 @@ use gpui::{
 };
 
 use crate::{
+    CONTEXT_MENU_BIND,
     launcher::children::{RenderableChild, RenderableChildDelegate},
-    ui::main_window::SherlockMainWindow,
+    ui::{UIFunction, main_window::SherlockMainWindow},
+    utils::config::ConfigGuard,
 };
 
 impl Render for SherlockMainWindow {
@@ -183,8 +185,9 @@ impl Render for SherlockMainWindow {
                                 .items_center()
                                 .gap(px(5.))
                                 .child(div().mr_1().child(SharedString::from("Additional Actions")))
-                                .child(keybind_box("⌘"))
-                                .child(keybind_box("L"))
+                                .children(
+                                    get_context_key_parts().into_iter().map(|p| keybind_box(p)),
+                                )
                         } else {
                             div()
                         }
@@ -193,7 +196,7 @@ impl Render for SherlockMainWindow {
     }
 }
 
-fn keybind_box(text: &'static str) -> impl Element {
+fn keybind_box(text: String) -> impl Element {
     div()
         .flex_none()
         .p(px(5.))
@@ -237,4 +240,30 @@ impl SherlockMainWindow {
             )
             .into_any_element()
     }
+}
+
+fn get_context_key_parts() -> Vec<String> {
+    CONTEXT_MENU_BIND
+        .get_or_init(|| {
+            ConfigGuard::read()
+                .ok()
+                .and_then(|config| {
+                    config
+                        .keybinds
+                        .iter()
+                        .find(|(_, func)| **func == UIFunction::ToggleContext)
+                        .map(|(name, _)| name.clone())
+                })
+                .unwrap_or_else(|| "ctrl-l".to_string())
+        })
+        .split('-')
+        .map(|part| match part {
+            "ctrl" => "⌃".to_string(),
+            "cmd" => "⌘".to_string(),
+            "shift" => "⇧".to_string(),
+            "alt" => "⌥".to_string(),
+            other if other.len() == 1 => other.to_uppercase(),
+            other => other.to_string(),
+        })
+        .collect()
 }
