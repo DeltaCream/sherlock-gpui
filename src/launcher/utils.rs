@@ -1,5 +1,14 @@
+use std::sync::Arc;
+
+use gpui::Image;
 use serde::Deserialize;
 use zbus::zvariant::{DeserializeDict, Type};
+
+#[derive(Clone, Default)]
+pub struct MprisState {
+    pub raw: Option<MprisData>,
+    pub image: Option<Arc<Image>>,
+}
 
 #[derive(DeserializeDict, Type, Debug, Clone, Default)]
 #[zvariant(signature = "a{sv}")]

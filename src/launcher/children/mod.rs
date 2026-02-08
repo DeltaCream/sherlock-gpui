@@ -4,10 +4,14 @@ use gpui::{AnyElement, SharedString};
 
 pub mod app_data;
 pub mod calc_data;
+pub mod mpris_data;
 pub mod weather_data;
 
 use crate::{
-    launcher::{ExecMode, Launcher, LauncherType, weather_launcher::WeatherData},
+    launcher::{
+        ExecMode, Launcher, LauncherType, audio_launcher::AudioLauncherFunctions,
+        utils::MprisState, weather_launcher::WeatherData,
+    },
     loader::utils::{AppData, ApplicationAction, ExecVariable},
     utils::config::HomeType,
 };
@@ -128,11 +132,39 @@ impl RenderableChild {
     pub fn based_show(&self, query: &str) -> Option<bool> {
         match self {
             Self::CalcLike { inner, .. } => Some(inner.based_show(query)),
+            Self::MusicLike { inner, .. } => {
+                // this skips early if the music launcher is empty
+                if inner.raw.is_some() {
+                    return None;
+                } else {
+                    Some(false)
+                }
+            }
             _ => None,
         }
     }
     pub async fn update_async(mut self) -> Option<Self> {
         match &mut self {
+            Self::MusicLike { inner, .. } => {
+                let new_inner = AudioLauncherFunctions::new().and_then(|launcher| {
+                    launcher
+                        .get_current_player()
+                        .and_then(|player| launcher.get_metadata(&player))
+                })?;
+
+                let changed = if let Some(raw) = &inner.raw {
+                    raw.metadata.title != new_inner.metadata.title
+                } else {
+                    true
+                };
+
+                if !changed {
+                    return None;
+                }
+
+                inner.image = new_inner.get_image().await.map(|(image, _)| image);
+                inner.raw = Some(new_inner);
+            }
             Self::WeatherLike { inner, launcher } => {
                 let LauncherType::Weather(wtr) = &launcher.launcher_type else {
                     unreachable!("WeatherLike variant must have LauncherType::Weather");
@@ -155,8 +187,9 @@ impl RenderableChild {
 renderable_enum! {
     enum RenderableChild {
         AppLike(AppData),
-        WeatherLike(WeatherData),
         CalcLike(CalcData),
+        MusicLike(MprisState),
+        WeatherLike(WeatherData),
     }
 }
 

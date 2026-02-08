@@ -47,7 +47,7 @@ use bookmark_launcher::BookmarkLauncher;
 use calc_launcher::CalculatorLauncher;
 use category_launcher::CategoryLauncher;
 use event_launcher::EventLauncher;
-use gpui::{App, AsyncApp, Entity, SharedString};
+use gpui::{App, Entity, SharedString};
 use serde_json::Value;
 use system_cmd_launcher::CommandLauncher;
 use weather_launcher::WeatherLauncher;
@@ -93,8 +93,6 @@ impl LauncherType {
         opts: Arc<Value>,
         counts: &HashMap<String, u32>,
         decimals: i32,
-        cx: &mut App,
-        data_handle: Entity<Arc<Vec<RenderableChild>>>,
     ) -> Option<Vec<RenderableChild>> {
         match self {
             Self::App(app) => {
@@ -191,6 +189,14 @@ impl LauncherType {
                     .collect();
 
                 Some(children)
+            }
+
+            Self::MusicPlayer(_) => {
+                let inner = utils::MprisState {
+                    raw: None,
+                    image: None,
+                };
+                Some(vec![RenderableChild::MusicLike { launcher, inner }])
             }
 
             Self::Weather(wttr) => {

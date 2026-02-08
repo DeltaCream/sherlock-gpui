@@ -1,9 +1,10 @@
 use bytes::Bytes;
-use gpui::ImageSource;
+use gpui::{Image, ImageFormat};
 use std::env;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::sync::Arc;
 use zbus::blocking::{Connection, Proxy};
 
 use crate::sherlock_error;
@@ -13,39 +14,33 @@ use crate::utils::errors::{SherlockError, SherlockErrorType};
 use super::utils::MprisData;
 
 #[derive(Debug, Clone, Default)]
-pub struct MusicPlayerLauncher {
-    pub player: String,
-    pub mpris: MprisData,
-}
-impl MusicPlayerLauncher {
+pub struct MusicPlayerLauncher {}
+impl MprisData {
     /// Get current image
     /// Return:
     /// image: Pixbuf
     /// was_cached: bool
-    pub async fn get_image(&self) -> Option<(ImageSource, bool)> {
-        let art_url = self.mpris.metadata.art.as_ref()?;
+    pub async fn get_image(&self) -> Option<(Arc<Image>, bool)> {
+        let art_url = self.metadata.art.as_ref()?;
         let loc = art_url.split("/").last()?.to_string();
         let mut was_cached = true;
-        let _bytes = match MusicPlayerLauncher::read_cached_cover(&loc) {
+        let bytes = match Self::read_cached_cover(&loc) {
             Ok(b) => b,
             Err(_) => {
                 if art_url.starts_with("file") {
-                    MusicPlayerLauncher::read_image_file(art_url).ok()?
+                    Self::read_image_file(art_url).ok()?
                 } else {
                     let response = reqwest::get(art_url).await.ok()?;
                     let bytes = response.bytes().await.ok()?;
-                    let _ = MusicPlayerLauncher::cache_cover(&bytes, &loc);
+                    let _ = Self::cache_cover(&bytes, &loc);
                     was_cached = false;
-                    bytes
+                    bytes.into()
                 }
             }
         };
 
-        // let loader = PixbufLoader::new();
-        // loader.write(&bytes).ok()?;
-        // loader.close().ok()?;
-        // loader.pixbuf().and_then(|i| Some((i, was_cached)));
-        None
+        let image_arc = Arc::new(Image::from_bytes(ImageFormat::Png, bytes));
+        Some((image_arc, was_cached))
     }
     fn cache_cover(image: &Bytes, loc: &str) -> Result<(), SherlockError> {
         // Create dir and parents
@@ -88,7 +83,7 @@ impl MusicPlayerLauncher {
         // if file not exist, create and write it
         Ok(())
     }
-    fn read_cached_cover(loc: &str) -> Result<Bytes, SherlockError> {
+    fn read_cached_cover(loc: &str) -> Result<Vec<u8>, SherlockError> {
         let home = env::var("HOME").map_err(|e| {
             sherlock_error!(
                 SherlockErrorType::EnvVarNotFoundError("HOME".to_string()),
@@ -111,9 +106,9 @@ impl MusicPlayerLauncher {
                 e.to_string()
             )
         })?;
-        Ok(buffer.into())
+        Ok(buffer)
     }
-    fn read_image_file(loc: &str) -> Result<Bytes, SherlockError> {
+    fn read_image_file(loc: &str) -> Result<Vec<u8>, SherlockError> {
         let path = PathBuf::from(loc.trim_start_matches("file://"));
 
         let mut file = File::open(&path).map_err(|e| {
@@ -129,7 +124,7 @@ impl MusicPlayerLauncher {
                 e.to_string()
             )
         })?;
-        Ok(buffer.into())
+        Ok(buffer)
     }
     pub fn playpause(player: &str) -> Result<(), SherlockError> {
         Self::player_method(player, "PlayPause")
@@ -164,12 +159,10 @@ impl MusicPlayerLauncher {
         Ok(())
     }
     pub fn update(&self) -> Option<(Self, bool)> {
-        // needed because Sherlock is too fast 🥴
-        std::thread::sleep(std::time::Duration::from_millis(50));
         let audio_launcher = AudioLauncherFunctions::new()?;
         let player = audio_launcher.get_current_player()?;
         let mpris = audio_launcher.get_metadata(&player)?;
-        let changed = mpris.mpris.metadata.title != self.mpris.metadata.title;
+        let changed = self.metadata.title != self.metadata.title;
         Some((mpris, changed))
     }
 }
@@ -204,7 +197,7 @@ impl AudioLauncherFunctions {
         }
         first
     }
-    pub fn get_metadata(&self, player: &str) -> Option<MusicPlayerLauncher> {
+    pub fn get_metadata(&self, player: &str) -> Option<MprisData> {
         let proxy = Proxy::new(
             &self.conn,
             player,
@@ -216,11 +209,6 @@ impl AudioLauncherFunctions {
             .call_method("GetAll", &("org.mpris.MediaPlayer2.Player"))
             .ok()?;
         let body = message.body();
-        let mpris_data: MprisData = body.deserialize().ok()?;
-
-        Some(MusicPlayerLauncher {
-            player: player.to_string(),
-            mpris: mpris_data,
-        })
+        body.deserialize().ok()
     }
 }

@@ -7,7 +7,7 @@ use crate::{
     launcher::{
         Launcher, LauncherType,
         app_launcher::AppLauncher,
-        audio_launcher::AudioLauncherFunctions,
+        audio_launcher::MusicPlayerLauncher,
         bookmark_launcher::BookmarkLauncher,
         calc_launcher::{CURRENCIES, CalculatorLauncher, Currency},
         category_launcher::CategoryLauncher,
@@ -120,11 +120,9 @@ impl Loader {
 
                 launcher.launcher_type.get_render_obj(
                     Arc::clone(&launcher),
-                    opts, //
+                    opts,
                     &counts,
                     max_decimals,
-                    cx,
-                    data_handle.clone(),
                 )
             })
             .flatten()
@@ -198,15 +196,7 @@ fn parse_app_launcher(raw: &RawLauncher) -> LauncherType {
     LauncherType::App(AppLauncher { use_keywords })
 }
 fn parse_audio_sink_launcher() -> LauncherType {
-    AudioLauncherFunctions::new()
-        .and_then(|launcher| {
-            launcher.get_current_player().and_then(|player| {
-                launcher
-                    .get_metadata(&player)
-                    .and_then(|launcher| Some(LauncherType::MusicPlayer(launcher)))
-            })
-        })
-        .unwrap_or(LauncherType::Empty)
+    LauncherType::MusicPlayer(MusicPlayerLauncher {})
 }
 fn parse_bookmarks_launcher(
     launcher: &RawLauncher,
