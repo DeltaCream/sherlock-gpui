@@ -126,7 +126,6 @@ impl LauncherType {
                     _ => vec![String::from("calc.math"), String::from("calc.units")],
                 };
                 let caps = Capabilities::from_strings(&capabilities);
-                println!("{:?}", caps);
                 let inner = CalcData::new(caps);
 
                 Some(vec![RenderableChild::CalcLike { launcher, inner }])
