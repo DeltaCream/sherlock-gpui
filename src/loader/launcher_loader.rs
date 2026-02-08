@@ -188,12 +188,10 @@ fn parse_launcher_configs(
 }
 
 fn parse_app_launcher(raw: &RawLauncher) -> LauncherType {
-    let use_keywords = raw
-        .args
-        .get("use_keywords")
-        .and_then(|s| s.as_bool())
-        .unwrap_or(true);
-    LauncherType::App(AppLauncher { use_keywords })
+    match serde_json::from_value::<AppLauncher>(raw.args.as_ref().clone()) {
+        Ok(launcher) => LauncherType::App(launcher),
+        Err(_) => LauncherType::Empty,
+    }
 }
 fn parse_audio_sink_launcher() -> LauncherType {
     LauncherType::MusicPlayer(MusicPlayerLauncher {})
@@ -237,64 +235,22 @@ fn parse_category_launcher(_raw: &RawLauncher) -> LauncherType {
 }
 
 fn parse_command_launcher(_raw: &RawLauncher) -> LauncherType {
-    // let value = &raw.args["commands"];
-    // let commands = parse_appdata(value, prio, counts, max_decimals);
     LauncherType::Command(CommandLauncher {})
 }
 
 fn parse_debug_launcher(_: &RawLauncher) -> LauncherType {
-    // let prio = raw.priority;
-    // let value = &raw.args["commands"];
-    // let commands = parse_appdata(value, prio, counts, max_decimals);
     LauncherType::Command(CommandLauncher {})
 }
 fn parse_weather_launcher(raw: &RawLauncher) -> LauncherType {
-    if let Some(location) = raw.args.get("location").and_then(Value::as_str) {
-        let update_interval = raw
-            .args
-            .get("update_interval")
-            .and_then(Value::as_u64)
-            .unwrap_or(60);
-
-        let icon_theme: WeatherIconTheme = raw
-            .args
-            .get("icon_theme")
-            .and_then(Value::as_str)
-            .and_then(|s| serde_json::from_str(&format!(r#""{}""#, s)).ok())
-            .unwrap_or(WeatherIconTheme::None);
-
-        let show_datetime = raw
-            .args
-            .get("show_datetime")
-            .and_then(Value::as_bool)
-            .unwrap_or(true);
-
-        LauncherType::Weather(WeatherLauncher {
-            location: location.to_string(),
-            update_interval,
-            icon_theme,
-            show_datetime,
-        })
-    } else {
-        LauncherType::Empty
+    match serde_json::from_value::<WeatherLauncher>(raw.args.as_ref().clone()) {
+        Ok(launcher) => LauncherType::Weather(launcher),
+        Err(_) => LauncherType::Empty,
     }
 }
 
 fn parse_web_launcher(raw: &RawLauncher) -> LauncherType {
-    let browser = raw
-        .args
-        .get("browser")
-        .and_then(|s| s.as_str())
-        .map(|s| s.to_string());
-
-    // Adds functionality for variables
-    LauncherType::Web(WebLauncher {
-        engine: raw
-            .args
-            .get("search_engine")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string(),
-        browser,
-    })
+    match serde_json::from_value::<WebLauncher>(raw.args.as_ref().clone()) {
+        Ok(launcher) => LauncherType::Web(launcher),
+        Err(_) => LauncherType::Empty,
+    }
 }

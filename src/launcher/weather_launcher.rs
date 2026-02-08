@@ -19,14 +19,13 @@ pub enum WeatherIconTheme {
     None,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct WeatherLauncher {
     pub location: String,
     pub update_interval: u64,
     pub icon_theme: WeatherIconTheme,
     pub show_datetime: bool,
 }
-impl WeatherLauncher {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WeatherData {
