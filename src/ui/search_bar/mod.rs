@@ -1,13 +1,14 @@
 use std::ops::Range;
 
 use gpui::{
-    AbsoluteLength, App, Bounds, ClipboardItem, Context, CursorStyle, Element, ElementId,
+    AbsoluteLength, Action, App, Bounds, ClipboardItem, Context, CursorStyle, Element, ElementId,
     ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable,
     GlobalElementId, InteractiveElement, IntoElement, LayoutId, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, PaintQuad, ParentElement, Pixels, Point, Render, ShapedLine,
     SharedString, Style, Styled, TextRun, UTF16Selection, UnderlineStyle, Window, actions, div,
     fill, hsla, point, px, rgb, rgba,
 };
+use serde::Deserialize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::loader::utils::ExecVariable;
@@ -31,6 +32,41 @@ actions!(
         Copy,
     ]
 );
+
+#[derive(
+    std::clone::Clone, std::cmp::PartialEq, std::default::Default, std::fmt::Debug, Deserialize,
+)]
+pub struct ShortcutAction {
+    pub index: usize,
+}
+impl Action for ShortcutAction {
+    fn boxed_clone(&self) -> Box<dyn Action> {
+        Box::new(self.clone())
+    }
+
+    fn name_for_type() -> &'static str {
+        "ShortcutAction"
+    }
+
+    fn name(&self) -> &'static str {
+        "ShortcutAction"
+    }
+
+    fn partial_eq(&self, action: &dyn Action) -> bool {
+        // We use downcast_ref to check if the other action is the same type
+        action
+            .as_any()
+            .downcast_ref::<Self>()
+            .map_or(false, |other| other.index == self.index)
+    }
+
+    fn build(value: serde_json::Value) -> gpui::Result<Box<dyn Action>> {
+        // This allows GPUI to create this action from a JSON/TOML value
+        // e.g. { "index": 1 }
+        let action: Self = serde_json::from_value(value)?;
+        Ok(Box::new(action))
+    }
+}
 
 // Implement event for mode change
 pub struct EmptyBackspace;

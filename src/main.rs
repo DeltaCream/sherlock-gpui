@@ -1,6 +1,7 @@
 use futures::future::join_all;
 use once_cell::sync::OnceCell;
 use std::{
+    collections::HashMap,
     io::Write,
     sync::{Arc, RwLock},
 };
@@ -15,8 +16,9 @@ use crate::{
     launcher::children::{LauncherValues, RenderableChild},
     loader::{CustomIconTheme, IconThemeGuard, Loader, assets::Assets},
     ui::{
+        UIFunction,
         main_window::{LauncherMode, NextVar, OpenContext, PrevVar},
-        search_bar::EmptyBackspace,
+        search_bar::{EmptyBackspace, ShortcutAction},
     },
     utils::{
         config::{ConfigGuard, SherlockConfig},
@@ -89,26 +91,54 @@ async fn main() {
     // start primary instance
     let app = Application::new().with_assets(Assets);
     app.with_quit_mode(QuitMode::Explicit).run(|cx: &mut App| {
-        cx.bind_keys([
-            KeyBinding::new("backspace", Backspace, None),
-            KeyBinding::new("delete", Delete, None),
+        let mut final_bindings: HashMap<String, KeyBinding> = HashMap::new();
+
+        let mut add_binding = |key: &str, binding: KeyBinding| {
+            final_bindings.insert(key.to_string(), binding);
+        };
+
+        // default binds
+        add_binding("backspace", KeyBinding::new("backspace", Backspace, None));
+        add_binding("delete", KeyBinding::new("delete", Delete, None));
+        add_binding(
+            "ctrl-backspace",
             KeyBinding::new("ctrl-backspace", DeleteAll, None),
-            KeyBinding::new("ctrl-a", SelectAll, None),
-            KeyBinding::new("ctrl-v", Paste, None),
-            KeyBinding::new("ctrl-c", Copy, None),
-            KeyBinding::new("ctrl-x", Cut, None),
-            KeyBinding::new("home", Home, None),
-            KeyBinding::new("end", End, None),
-            KeyBinding::new("left", Left, None),
-            KeyBinding::new("right", Right, None),
-            KeyBinding::new("escape", Quit, None),
-            KeyBinding::new("down", FocusNext, None),
-            KeyBinding::new("up", FocusPrev, None),
-            KeyBinding::new("enter", Execute, None),
-            KeyBinding::new("tab", NextVar, None),
-            KeyBinding::new("shift-tab", PrevVar, None),
-            KeyBinding::new("ctrl-l", OpenContext, None),
-        ]);
+        );
+        add_binding("ctrl-a", KeyBinding::new("ctrl-a", SelectAll, None));
+        add_binding("ctrl-v", KeyBinding::new("ctrl-v", Paste, None));
+        add_binding("ctrl-c", KeyBinding::new("ctrl-c", Copy, None));
+        add_binding("ctrl-x", KeyBinding::new("ctrl-x", Cut, None));
+        add_binding("escape", KeyBinding::new("escape", Quit, None));
+
+        add_binding("home", KeyBinding::new("home", Home, None));
+        add_binding("end", KeyBinding::new("end", End, None));
+        add_binding("left", KeyBinding::new("left", Left, None));
+        add_binding("right", KeyBinding::new("right", Right, None));
+        add_binding("down", KeyBinding::new("down", FocusNext, None));
+        add_binding("up", KeyBinding::new("up", FocusPrev, None));
+        add_binding("enter", KeyBinding::new("enter", Execute, None));
+        add_binding("tab", KeyBinding::new("tab", NextVar, None));
+        add_binding("shift-tab", KeyBinding::new("shift-tab", PrevVar, None));
+        add_binding("ctrl-l", KeyBinding::new("ctrl-l", OpenContext, None));
+
+        if let Ok(config) = ConfigGuard::read() {
+            for (key, action_type) in &config.keybinds {
+                if *action_type == UIFunction::Shortcut && key.contains("<digit>") {
+                    for i in 0..=9 {
+                        let actual_key = key.replace("<digit>", &i.to_string());
+                        add_binding(
+                            &actual_key,
+                            KeyBinding::new(&actual_key, ShortcutAction { index: i }, None),
+                        );
+                    }
+                } else if let Some(binding) = action_type.into_bind(key) {
+                    // This will overwrite the default if the 'key' (keystroke) is the same
+                    add_binding(key, binding);
+                }
+            }
+        }
+
+        cx.bind_keys(final_bindings.into_values().collect::<Vec<_>>());
 
         let socket_path = "/tmp/sherlock.sock";
         let data: Entity<Arc<Vec<RenderableChild>>> = cx.new(|_| Arc::new(Vec::new()));
@@ -120,8 +150,6 @@ async fn main() {
             }
         };
 
-        spawn_launcher(cx, data.clone(), Arc::clone(&modes));
-
         // listen for open requests
         let _ = std::fs::remove_file(socket_path);
         let listener = UnixListener::bind(socket_path).unwrap();
@@ -129,7 +157,7 @@ async fn main() {
         cx.spawn(|cx: &mut AsyncApp| {
             let cx = cx.clone();
             async move {
-                let mut win: Option<AnyWindowHandle> = None;
+                let mut win: Option<WindowHandle<SherlockMainWindow>> = None;
                 loop {
                     if let Ok((_stream, _)) = listener.accept().await {
                         // Create new window
@@ -150,7 +178,7 @@ async fn main() {
                         // update content
                         let data_clone = data.clone();
                         {
-                            let Ok(data) = data_clone.read_with(&cx, |this, cx| this.clone())
+                            let Ok(data) = data_clone.read_with(&cx, |this, _cx| this.clone())
                             else {
                                 return;
                             };
@@ -183,7 +211,12 @@ async fn main() {
                                             });
 
                                         cx.notify();
-                                    })
+                                    });
+                                    win.map(|win| {
+                                        win.update(cx, |view, _win, cx| {
+                                            view.filter_and_sort(cx);
+                                        })
+                                    });
                                 });
                             }
                         }
@@ -201,7 +234,7 @@ fn spawn_launcher(
     cx: &mut App,
     data: Entity<Arc<Vec<RenderableChild>>>,
     modes: Arc<[LauncherMode]>,
-) -> AnyWindowHandle {
+) -> WindowHandle<SherlockMainWindow> {
     // For now load application here
     let window = cx
         .open_window(get_window_options(), |_, cx| {
@@ -275,7 +308,7 @@ fn spawn_launcher(
         })
         .unwrap();
 
-    window.into()
+    window
 }
 
 fn get_window_options() -> WindowOptions {
