@@ -1,5 +1,4 @@
 use gpui::{App, Entity};
-use serde_json::Value;
 use simd_json::prelude::ArrayTrait;
 use std::{collections::HashMap, fs::File, path::PathBuf, sync::Arc};
 
@@ -13,7 +12,7 @@ use crate::{
         category_launcher::CategoryLauncher,
         children::RenderableChild,
         system_cmd_launcher::CommandLauncher,
-        weather_launcher::{WeatherIconTheme, WeatherLauncher},
+        weather_launcher::WeatherLauncher,
         web_launcher::WebLauncher,
     },
     loader::utils::RawLauncher,

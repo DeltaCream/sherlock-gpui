@@ -217,9 +217,6 @@ impl LauncherMode {
             Self::Alias { short, .. } => short.as_ref(),
         }
     }
-    pub fn is_active(&self) -> bool {
-        matches!(self, Self::Alias { .. })
-    }
     pub fn display_str(&self) -> SharedString {
         match self {
             // "".into() uses static literals (no allocation) → efficient
