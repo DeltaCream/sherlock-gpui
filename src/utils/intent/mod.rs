@@ -110,7 +110,7 @@ impl<'a> Intent<'a> {
         }
 
         // match intent
-        if let Some(intent) = Intent::try_parse_color_conversion(&tokens) {
+        if let Some(intent) = Intent::try_parse_color_conversion(&tokens, caps) {
             return intent;
         }
 
@@ -137,7 +137,11 @@ impl<'a> Intent<'a> {
         }
     }
 
-    fn try_parse_color_conversion(tokens: &[&'a str]) -> Option<Intent<'a>> {
+    fn try_parse_color_conversion(tokens: &[&'a str], caps: &Capabilities) -> Option<Intent<'a>> {
+        if !caps.allows(Capabilities::COLORS) {
+            return None;
+        }
+
         let spaces = ["rgb", "rgba", "hex", "hsl", "hsv", "lab"];
 
         // space start
@@ -239,8 +243,10 @@ macro_rules! define_units {
             $($variant:ident: [$($alias:literal),*] => $factor:expr, $canonical_symbol:literal),* $(,)?
         }
     )*) => {
-        #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+        #[derive(PartialEq, Eq, Hash)]
+        #[allow(dead_code)]
         pub enum UnitCategory { $($category),* }
+        #[allow(dead_code)]
         impl UnitCategory {
             pub fn capability_mask(&self) -> u32 {
                 match self {
@@ -251,6 +257,7 @@ macro_rules! define_units {
 
         #[derive(Clone, Debug)]
         pub struct Capabilities(u32);
+        #[allow(dead_code)]
         impl Capabilities {
             pub const NONE: u32 = 0;
             $( pub const $cap_const: u32 = $cap_val; )*

@@ -206,8 +206,6 @@ fn default_true() -> bool {
 pub struct RawLauncher {
     pub name: Option<String>,
     pub alias: Option<String>,
-    pub tag_start: Option<String>,
-    pub tag_end: Option<String>,
     pub display_name: Option<String>,
     pub on_return: Option<String>,
     pub next_content: Option<String>,

@@ -20,11 +20,7 @@ pub mod web_launcher;
 // pub mod theme_picker;
 
 use serde::de::IntoDeserializer;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-    vec,
-};
+use std::{collections::HashMap, sync::Arc, vec};
 
 use crate::{
     launcher::{
@@ -257,7 +253,6 @@ pub struct Launcher {
     pub display_name: Option<SharedString>,
     pub icon: Option<String>, // nu
     pub alias: Option<String>,
-    pub tag_end: Option<String>,      // nu
     pub method: String,               // nu
     pub exit: bool,                   // nu
     pub next_content: Option<String>, // nu
@@ -282,7 +277,6 @@ impl Launcher {
             display_name: raw.display_name.map(|n| SharedString::from(n)),
             icon,
             alias: raw.alias,
-            tag_end: raw.tag_end,
             method,
             exit: raw.exit,
             next_content: raw.next_content,
