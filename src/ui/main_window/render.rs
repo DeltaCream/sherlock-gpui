@@ -35,7 +35,6 @@ impl Render for SherlockMainWindow {
             .on_action(cx.listener(Self::execute))
             .on_action(cx.listener(Self::quit))
             .on_action(cx.listener(Self::open_context))
-            .on_action(cx.listener(Self::backspace))
             .child(
                 // search bar
                 div()

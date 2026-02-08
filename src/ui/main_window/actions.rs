@@ -242,9 +242,6 @@ impl SherlockMainWindow {
             self.close_window(win, cx);
         }
     }
-    pub(super) fn backspace(&mut self, _: &Backspace, _win: &mut Window, cx: &mut Context<Self>) {
-        cx.stop_propagation();
-    }
     pub(super) fn close_window(&mut self, win: &mut Window, cx: &mut Context<Self>) {
         // Cleanup
         self.variable_input.clear();
