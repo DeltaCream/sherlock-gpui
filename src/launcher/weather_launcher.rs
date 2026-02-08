@@ -1,4 +1,4 @@
-use gpui::{LinearColorStop, hsla, linear_color_stop, rgb};
+use gpui::{Hsla, LinearColorStop, hsla, linear_color_stop, rgb};
 use serde::{Deserialize, Serialize};
 use simd_json::base::{ValueAsArray, ValueAsScalar};
 use std::collections::HashSet;
@@ -67,7 +67,10 @@ impl WeatherData {
                 .and_then(|f| simd_json::from_reader(f).ok())?;
 
             cached_data.icon = if matches!(launcher.icon_theme, WeatherIconTheme::Sherlock) {
-                resolve_icon_path(&format!("sherlock-weather-{}", cached_data.css))
+                resolve_icon_path(&format!(
+                    "weather-icons/sherlock-weather-{}",
+                    cached_data.css
+                ))
             } else {
                 resolve_icon_path(&format!("weather-{}", cached_data.css))
             };
@@ -124,7 +127,7 @@ impl WeatherData {
         let code = current_condition["weatherCode"].as_str()?;
         let icon = if matches!(launcher.icon_theme, WeatherIconTheme::Sherlock) {
             resolve_icon_path(&format!(
-                "sherlock-weather-{}",
+                "weather-icons/sherlock-weather-{}",
                 Self::match_weather_code(code)
             ))
         } else {
@@ -263,6 +266,21 @@ impl WeatherClass {
                 linear_color_stop(rgb(0x2e2e2e), 0.0),
                 linear_color_stop(rgb(0x1a1a1a), 1.0),
             ),
+        }
+    }
+    pub fn color(&self) -> impl Into<Hsla> {
+        match self {
+            Self::Clear => rgb(0xffffff),
+            Self::FewClouds => rgb(0xffffff),
+            Self::ManyClouds => rgb(0xffffff),
+            Self::Mist => rgb(0xffffff),
+            Self::Showers | Self::ShowersScattered => rgb(0xffffff),
+            Self::FreezingScatteredRainStorm
+            | Self::Storm
+            | Self::SnowStorm
+            | Self::SnowScatteredStorm => rgb(0xffffff),
+            Self::FreezingScatteredRain | Self::SnowScatteredDay => rgb(0xffffff),
+            Self::None => rgb(0xffffff),
         }
     }
 }

@@ -28,6 +28,7 @@ impl<'a> RenderableChildImpl<'a> for WeatherData {
                 let (p1, p2) = self.css.background();
                 linear_gradient(90., p1, p2)
             })
+            .text_color(self.css.color())
             .flex_col()
             .gap_5()
             .items_center()
