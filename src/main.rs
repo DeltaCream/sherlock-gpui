@@ -159,67 +159,78 @@ async fn main() {
             let cx = cx.clone();
             async move {
                 let mut win: Option<WindowHandle<SherlockMainWindow>> = None;
+                let mut current_generation: u64 = 0;
+                let mut active_update_task: Option<gpui::Task<()>> = None;
                 loop {
                     if let Ok((_stream, _)) = listener.accept().await {
+                        // to prevent never read warning while also dropping previous task
+                        if let Some(task) = active_update_task.take() {
+                            drop(task)
+                        }
+
+                        current_generation += 1;
+                        let this_generation = current_generation;
+
                         // Create new window
-                        cx.update({
-                            |cx| {
-                                // Close old window
-                                if let Some(old_win) = win.take() {
-                                    let _ = old_win.update(cx, |_, win, _| {
-                                        win.remove_window();
-                                    });
-                                }
-
-                                win = Some(spawn_launcher(cx, data.clone(), Arc::clone(&modes)));
-                            }
-                        })
-                        .ok();
-
-                        // update content
-                        let data_clone = data.clone();
-                        {
-                            let Ok(data) = data_clone.read_with(&cx, |this, _cx| this.clone())
-                            else {
-                                return;
-                            };
-
-                            let update_futures = data
-                                .iter()
-                                .enumerate()
-                                .filter(|(_, item)| item.is_async())
-                                .map(|(idx, item)| async move {
-                                    (idx, item.clone().update_async().await)
+                        let new_win_handle = cx.update(|cx| {
+                            if let Some(old_win) = win.take() {
+                                let _ = old_win.update(cx, |_, win, _| {
+                                    win.remove_window();
                                 });
+                            }
 
-                            let updates = join_all(update_futures).await;
+                            let new_win = spawn_launcher(cx, data.clone(), Arc::clone(&modes));
+                            win = Some(new_win.clone());
+                            new_win
+                        });
 
-                            if !updates.is_empty() {
-                                let _ = cx.update(|cx| {
-                                    data_clone.update(cx, |items_arc, cx| {
-                                        let items_vec = Arc::make_mut(items_arc);
-                                        updates
-                                            .into_iter()
-                                            .filter_map(|(idx, update)| {
-                                                if let Some(update) = update {
-                                                    Some((idx, update))
-                                                } else {
-                                                    None
-                                                }
-                                            })
-                                            .for_each(|(idx, update)| {
-                                                items_vec[idx] = update;
+                        // update content async
+                        if let Ok(new_win) = new_win_handle {
+                            let cx_inner = cx.clone();
+                            let data_clone = data.clone();
+
+                            active_update_task =
+                                Some(cx.spawn(move |_cx: &mut AsyncApp| async move {
+                                    let data_items = data_clone
+                                        .read_with(&cx_inner, |this, _| this.clone())
+                                        .ok();
+
+                                    if let Some(items) = data_items {
+                                        let update_futures = items
+                                            .iter()
+                                            .enumerate()
+                                            .filter(|(_, item)| item.is_async())
+                                            .map(|(idx, item)| async move {
+                                                (idx, item.clone().update_async().await)
                                             });
 
-                                        cx.notify();
-                                    });
-                                    win.map(|win| {
-                                        win.update(cx, |view, _win, cx| {
-                                            view.filter_and_sort(cx);
-                                        })
-                                    });
-                                });
-                            }
+                                        let updates = join_all(update_futures).await;
+
+                                        let _ = cx_inner.update(|cx| {
+                                            if current_generation != this_generation {
+                                                return;
+                                            }
+
+                                            if !updates.is_empty() {
+                                                data_clone.update(cx, |items_arc, cx| {
+                                                    let items_vec = Arc::make_mut(items_arc);
+                                                    for (idx, update) in updates
+                                                        .into_iter()
+                                                        .filter_map(|(i, u)| u.map(|v| (i, v)))
+                                                    {
+                                                        items_vec[idx] = update;
+                                                    }
+
+                                                    cx.notify();
+                                                })
+                                            }
+
+                                            let _ = new_win.update(cx, |view, _, cx| {
+                                                view.filter_and_sort(cx);
+                                            });
+                                        });
+                                    }
+                                }));
                         }
                     } else {
                         eprintln!("Broken UNIX Socket.");
