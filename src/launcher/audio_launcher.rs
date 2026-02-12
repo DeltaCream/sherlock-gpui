@@ -39,7 +39,11 @@ impl MprisData {
             }
         };
 
-        let image_arc = Arc::new(Image::from_bytes(ImageFormat::Png, bytes));
+        // mimetype parsing
+        let mime = identify_image_type(&bytes);
+        let format = ImageFormat::from_mime_type(mime)?;
+
+        let image_arc = Arc::new(Image::from_bytes(format, bytes));
         Some((image_arc, was_cached))
     }
     fn cache_cover(image: &Bytes, loc: &str) -> Result<(), SherlockError> {
@@ -210,5 +214,21 @@ impl AudioLauncherFunctions {
             .ok()?;
         let body = message.body();
         body.deserialize().ok()
+    }
+}
+
+/// This function reads the "magic bytes" of images files to identify its mimetype
+fn identify_image_type(bytes: &[u8]) -> &'static str {
+    if bytes.len() < 4 {
+        return "image/png";
+    }
+
+    match &bytes[0..4] {
+        [0x89, 0x50, 0x4E, 0x47] => "image/png",
+        [0xFF, 0xD8, 0xFF, _]    => "image/jpeg",
+        [0x47, 0x49, 0x46, 0x38] => "image/gif",
+        [0x42, 0x4D, _, _]       => "image/bmp",
+        [0x52, 0x49, 0x46, 0x46] if &bytes[8..12] == b"WEBP" => "image/webp",
+        _ => "image/png",
     }
 }
