@@ -212,7 +212,7 @@ async fn main() {
                                             }
 
                                             if !updates.is_empty() {
-                                                data_clone.update(cx, |items_arc, cx| {
+                                                data_clone.update(cx, |items_arc, _cx| {
                                                     let items_vec = Arc::make_mut(items_arc);
                                                     for (idx, update) in updates
                                                         .into_iter()
@@ -220,14 +220,13 @@ async fn main() {
                                                     {
                                                         items_vec[idx] = update;
                                                     }
+                                                });
 
-                                                    cx.notify();
-                                                })
+                                                let _ = new_win.update(cx, |view, _, cx| {
+                                                    view.last_query = None; // forces update
+                                                    view.filter_and_sort(cx);
+                                                });
                                             }
-
-                                            let _ = new_win.update(cx, |view, _, cx| {
-                                                view.filter_and_sort(cx);
-                                            });
                                         });
                                     }
                                 }));
