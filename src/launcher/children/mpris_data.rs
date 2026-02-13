@@ -14,7 +14,9 @@ impl<'a> RenderableChildImpl<'a> for MprisState {
             .gap_5()
             .items_center()
             .child(if let Some(icon) = &self.image {
-                img(ImageSource::Image(Arc::clone(icon))).size(px(64.)).rounded_md()
+                img(ImageSource::Image(Arc::clone(icon)))
+                    .size(px(64.))
+                    .rounded_md()
             } else {
                 img(ImageSource::Image(Arc::new(Image::empty()))).size(px(24.))
             })

@@ -31,12 +31,14 @@ impl SherlockMainWindow {
     pub fn focus_first(&mut self, cx: &mut Context<Self>) {
         // early return if no indices
         if self.filtered_indices.is_empty() {
-            return 
+            return;
         }
 
         let first_valid_index = {
             let data_guard = self.data.read(cx);
-            self.filtered_indices.iter().position(|idx| data_guard[*idx].spawn_focus())
+            self.filtered_indices
+                .iter()
+                .position(|idx| data_guard[*idx].spawn_focus())
         };
 
         if let Some(n) = first_valid_index {
@@ -46,7 +48,7 @@ impl SherlockMainWindow {
     pub fn focus_nth(&mut self, n: usize, cx: &mut Context<Self>) {
         // early return on invalid index
         if self.filtered_indices.len() <= n {
-            return
+            return;
         }
 
         self.selected_index = n;

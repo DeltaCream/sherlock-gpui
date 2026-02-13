@@ -225,9 +225,9 @@ fn identify_image_type(bytes: &[u8]) -> &'static str {
 
     match &bytes[0..4] {
         [0x89, 0x50, 0x4E, 0x47] => "image/png",
-        [0xFF, 0xD8, 0xFF, _]    => "image/jpeg",
+        [0xFF, 0xD8, 0xFF, _] => "image/jpeg",
         [0x47, 0x49, 0x46, 0x38] => "image/gif",
-        [0x42, 0x4D, _, _]       => "image/bmp",
+        [0x42, 0x4D, _, _] => "image/bmp",
         [0x52, 0x49, 0x46, 0x46] if &bytes[8..12] == b"WEBP" => "image/webp",
         _ => "image/png",
     }
