@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::launcher::LauncherType;
 use crate::launcher::children::{LauncherValues, RenderableChild};
 use crate::launcher::children::{RenderableChildDelegate, SherlockSearch};
 use crate::loader::utils::{ApplicationAction, ExecVariable};
@@ -132,7 +133,6 @@ impl SherlockMainWindow {
                         .map(|i| (i, &data_arc[i]))
                         .filter(|(_, data)| {
                             let home = data.home();
-
                             // [Rule 1]
                             // Case 1: Early return if mode applies but item is not assigned to that mode
                             // Case 2: Early return if current mode is not required mode for item
@@ -170,7 +170,17 @@ impl SherlockMainWindow {
                             // Check if query matches
                             data.search().fuzzy_match(&query)
                         })
-                        .map(|(i, data)| (i, data.priority()))
+                        .map(|(i, data)| {
+                            let mut match_in = data.search();
+                            if let LauncherType::App(app) = data.launcher_type() {
+                                if !app.use_keywords {
+                                    match_in = data.name().unwrap_or_default()
+                                }
+                            }
+
+                            let prio = make_prio(data.priority(), &query, match_in);
+                            (i, prio)
+                        })
                         .collect();
 
                     // drop here to release lock faster
@@ -252,4 +262,65 @@ impl LauncherMode {
         // only minor change
         false
     }
+}
+
+fn search_score(query: &str, match_in: &str) -> f32 {
+    if query.is_empty() {
+        return 0.8;
+    }
+    if match_in.is_empty() {
+        return 1.0;
+    }
+
+    let mut best_score = 1.0;
+
+    for element in match_in.split(';') {
+        // skip emtpy elements
+        if element.is_empty() {
+            continue;
+        }
+
+        // early return on perfect match
+        if element == query {
+            return 0.0;
+        }
+
+        // prefix match
+        if element.starts_with(query) {
+            // bonus for coverage, e.g. 4 out of 5 chars match
+            let coverage = query.len() as f32 / element.len() as f32;
+            let score = 0.1 + (0.1 * (1.0 - coverage));
+            if score < best_score {
+                best_score = score
+            }
+            continue;
+        }
+
+        // levenshtein matching
+        if (element.len() as isize - query.len() as isize).abs() < 4 {
+            let dist = levenshtein::levenshtein(query, element);
+            let normed = (dist as f32 / element.len() as f32).clamp(0.2, 1.0);
+            if normed < best_score {
+                best_score = normed
+            }
+        }
+    }
+    best_score
+}
+
+fn make_prio(prio: f32, query: &str, match_in: &str) -> f32 {
+    let score = search_score(query, match_in);
+    // shift counts 3 to right; 1.34 → 1.0034 to make room for levenshtein (2 spaces for
+    // max .99)
+    let counters = prio.fract() / 100.0;
+    if let Ok(var) = std::env::var("DEBUG_SEARCH") {
+        if var == "true" {
+            println!("Base Prio: {}", prio);
+            println!(
+                "Resulting Prio: {}\n",
+                prio.trunc() + (counters + score).min(0.99)
+            );
+        }
+    }
+    prio.trunc() + (counters + score).min(0.99)
 }
