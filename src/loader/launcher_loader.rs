@@ -11,6 +11,7 @@ use crate::{
         calc_launcher::{CURRENCIES, CalculatorLauncher, Currency},
         category_launcher::CategoryLauncher,
         children::RenderableChild,
+        clipboard_launcher::ClipboardLauncher,
         system_cmd_launcher::CommandLauncher,
         weather_launcher::WeatherLauncher,
         web_launcher::WebLauncher,
@@ -82,6 +83,7 @@ impl Loader {
                     "web_launcher" => parse_web_launcher(&raw),
                     // "bulk_text" => parse_bulk_text_launcher(&raw),
                     // "clipboard-execution" => parse_clipboard_launcher(&raw).ok()?,
+                    "clipboard" => parse_clipboard_launcher(&raw),
                     // "emoji_picker" => parse_emoji_launcher(&raw),
                     // "files" => parse_file_launcher(&raw),
                     // "teams_event" => parse_event_launcher(&raw),
@@ -252,4 +254,32 @@ fn parse_web_launcher(raw: &RawLauncher) -> LauncherType {
         Ok(launcher) => LauncherType::Web(launcher),
         Err(_) => LauncherType::Empty,
     }
+}
+
+fn parse_clipboard_launcher(raw: &RawLauncher) -> LauncherType {
+    // let clipboard = raw
+    //     .args
+    //     .get("clipboard")
+    //     .and_then(|s| s.as_str())
+    //     .map(|s| s.to_string());
+
+    // Adds functionality for variables
+    // Ok(LauncherType::Clipboard(ClipboardLauncher {}))
+
+    let max_entries = raw
+        .args
+        .get("max_entries")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(100) as usize;
+
+    let show_thumbnails = raw
+        .args
+        .get("show_thumbnails")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    LauncherType::Clipboard(ClipboardLauncher {
+        max_entries,
+        show_thumbnails,
+    })
 }

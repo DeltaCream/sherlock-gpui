@@ -10,7 +10,7 @@ pub mod utils;
 pub mod weather_launcher;
 pub mod web_launcher;
 // Integrate later: TODO
-// pub mod clipboard_launcher;
+pub mod clipboard_launcher;
 // pub mod bulk_text_launcher;
 // pub mod pipe_launcher;
 // pub mod emoji_picker;
@@ -51,7 +51,7 @@ use web_launcher::WebLauncher;
 
 // Integrate later: TODO
 // use bulk_text_launcher::BulkTextLauncher;
-// use clipboard_launcher::ClipboardLauncher;
+use clipboard_launcher::ClipboardLauncher;
 // use emoji_picker::EmojiPicker;
 // use file_launcher::FileLauncher;
 // use pomodoro_launcher::Pomodoro;
@@ -74,7 +74,7 @@ pub enum LauncherType {
     // Integrate later: TODO
     // Pipe(PipeLauncher),
     // Api(BulkTextLauncher),
-    // Clipboard(ClipboardLauncher),
+    Clipboard(ClipboardLauncher),
     // Emoji(EmojiPicker),
     // File(FileLauncher),
     // Pomodoro(Pomodoro),
@@ -116,6 +116,21 @@ impl LauncherType {
                     })
                     .ok()
             }
+
+            Self::Clipboard(clip) => ClipboardLauncher::load_entries(
+                Arc::clone(&launcher),
+                clip.max_entries,
+                clip.show_thumbnails,
+            )
+            .map(|ad| {
+                ad.into_iter()
+                    .map(|inner| RenderableChild::AppLike {
+                        launcher: Arc::clone(&launcher),
+                        inner,
+                    })
+                    .collect()
+            })
+            .ok(),
 
             Self::Calc(_) => {
                 let capabilities: Vec<String> = match opts.get("capabilities") {
@@ -342,6 +357,16 @@ impl ExecMode {
                 browser: web.browser.clone(),
                 exec: app_data.exec.clone(),
             },
+            LauncherType::Clipboard(_) => {
+                if let Some(exec) = &app_data.exec {
+                    if let Some(id_str) = exec.strip_prefix("clipboard:") {
+                        if let Ok(id) = id_str.parse::<i64>() {
+                            let _ = ClipboardLauncher::restore_clipboard(id);
+                        }
+                    }
+                }
+                Self::None
+            }
             _ => Self::None,
         }
     }
